@@ -34,7 +34,7 @@ def main():
         )
         return parser.parse_args()
     args = initialize_params()
-    app_token, pg = import_app_token(os.path.expanduser(args.ini_path))
+    app_token, pg = import_secrets(os.path.expanduser(args.ini_path))
 
     # Establish a client to query the database
     client = Socrata("data.austintexas.gov", app_token)
