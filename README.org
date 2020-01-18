@@ -1,1 +1,4 @@
 #+TITLE: Scoot on Home Project Description
+
+* Model Assumptions
+- Scooters only get 60% of the manufacturer's claimed range ([[https://electric-scooter.guide/comparisons/electric-scooter-performance-tests/][source]] says 50-70%). I translate this to mean 15 miles.
