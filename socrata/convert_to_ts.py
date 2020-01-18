@@ -135,7 +135,7 @@ class ts_maker():
                         # very long length suggests vehicle hidden or out of service
                         if (t.total_seconds() > 43200) and (t.total_seconds() < (86400 * 3)):
                             chunks = ((t.total_seconds() - 43200) / 60) // 15
-                            # assume 12 hours for recharge and moving, otherwise available
+                            # assume 12 hours for recharge and moving
                             self.add_vehicle(tmp, chunks)
                             # could add more complexity here
                 else:
@@ -149,7 +149,8 @@ class ts_maker():
                         # how long between the changes?
                         t = tmp.iloc[i + 1, 7] - tmp.iloc[i, 8]
                         if t.total_seconds() >= 86400:
-                            self.add_vehicle(tmp, 48) # assume 12 additional hours
+                            # assume 12 additional hours, then vehicle was charged
+                            self.add_vehicle(tmp, 48) 
                             # could add more complexity here
             else:
                 # trip ends in different area
