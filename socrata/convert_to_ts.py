@@ -78,6 +78,7 @@ class ts_maker():
         self.areas = set(list(pd.unique(self.dat['location_start_id'])) +
                          list(pd.unique(self.dat['location_end_id'])))
         self.init_ts_df()
+        self.travel_totals = pd.DataFrame()
 
     def init_ts_df(self):
         time_stamps = pd.date_range(self.dat.start_time.min(),
@@ -96,10 +97,12 @@ class ts_maker():
         # add one vehicle to area for that time
         self.ts.loc[pd.IndexSlice[tmp.iloc[i, 5], time_span], 'n'] += 1
 
-    def where_am_i(df, ts, idx):
-        tmp = df[df.device_id == idx]
+    def where_am_i(idx):
+        tmp = self.dat[self.dat.device_id == idx]
         tmp.reset_index(drop=True, inplace=True)
         travel = tmp.groupby('date').sum()
+        travel['device_id'] = idx
+        self.travel_totals = pd.concat([self.travel_totals, travel])
         tmp.drop_duplicates(subset=['start_time'], keep='first', inplace=True)
         # final trip has to be ignored
         for i in range(tmp.shape[0] - 2):
