@@ -69,28 +69,61 @@ ts = pd.DataFrame(np.zeros(len(time_stamps) * len(areas), dtype=int),
                                                    names=['area', 'time']),
                   columns=['n'])
 
-def where_am_i(df, ts, idx):
-    tmp = df[df.device_id == idx]
-    tmp.reset_index(drop=True, inplace=True)
-    travel = tmp.groupby('date').sum()
-    tmp.drop_duplicates(subset=['start_time'], keep='first', inplace=True)
-    for i in range(tmp.shape[0] - 2):
-        # final trip has to be dropped
-        # need to figure out if subsequent trip is in same area
-        # if it is, then logically can it be there continuously
-        # if not, then how much longer did it stay there
-        if tmp.iloc[i, 5] == tmp.iloc[i, 6]:
-            # trip starts and ends in same area
-            pass
-        else:
-            # trip ends in different area
-            # calculate length of trip
-            p = ((tmp.iloc[i, 3] / 60) // 15) + 1
-            time_span = list(map(str, pd.date_range(tmp.iloc[i, 7],
-                                                    periods=int(p),
-                                                    freq="15min")))
-            # add one vehicle to area for that time
-            ts.loc[pd.IndexSlice[tmp.iloc[i, 5], time_span], :'n'] += 1
+class ts_maker():
+    """convert data to ts without constantly passing parameters and rewriting things
+
+    """
+    def __init__(self, dat):
+        self.dat = dat
+        self.areas = set(list(pd.unique(self.dat['location_start_id'])) +
+                         list(pd.unique(self.dat['location_end_id'])))
+        self.init_ts_df()
+
+    def init_ts_df(self):
+        time_stamps = pd.date_range(self.dat.start_time.min(),
+                                    self.dat.end_time.max(),
+                                    freq="15min")
+        self.ts = pd.DataFrame(np.zeros(len(time_stamps) * len(self.areas), dtype=int),
+                          index=pd.MultiIndex.from_product([self.areas, time_stamps],
+                                                           names=['area', 'time']),
+                          columns=['n'])
+
+    def add_vehicle(self, tmp):
+        p = ((tmp.iloc[i, 3] / 60) // 15) + 1
+        time_span = list(map(str, pd.date_range(tmp.iloc[i, 7],
+                                                periods=int(p),
+                                                freq="15min")))
+        # add one vehicle to area for that time
+        self.ts.loc[pd.IndexSlice[tmp.iloc[i, 5], time_span], 'n'] += 1
+
+    def where_am_i(df, ts, idx):
+        tmp = df[df.device_id == idx]
+        tmp.reset_index(drop=True, inplace=True)
+        travel = tmp.groupby('date').sum()
+        tmp.drop_duplicates(subset=['start_time'], keep='first', inplace=True)
+        # final trip has to be ignored
+        for i in range(tmp.shape[0] - 2):
+            # Did the trip start and stop in the same area?
+            if tmp.iloc[i, 5] == tmp.iloc[i, 6]:
+                # trip starts and ends in same area
+                # first, take care of the journey itself
+                self.add_vehicle(tmp)
+                
+                # What if the vehicle sits idle for a period?
+                if tmp.iloc[i, 6] != tmp.iloc[i + 1, 5]:
+                    # vehicle changed zones between journeys
+                    pass
+                else:
+                    # vehicle stayed in same area
+                    # could still have to think about if it was consistently there or not
+                    pass
+                pass
+            else:
+                # trip ends in different area
+                self.add_vehicle(tmp)
+        
 
 
-ts.loc[pd.IndexSlice[foo.iloc[0, 5], ['2019-04-03 08:30:00', '2019-04-03 08:45:00']], :]
+
+        
+
