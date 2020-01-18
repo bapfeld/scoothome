@@ -89,8 +89,11 @@ class ts_maker():
                                                            names=['area', 'time']),
                           columns=['n'])
 
-    def add_vehicle(self, tmp):
-        p = ((tmp.iloc[i, 3] / 60) // 15) + 1
+    def add_vehicle(self, tmp, arbitrary=None):
+        if arbitrary is None:
+            p = ((tmp.iloc[i, 3] / 60) // 15) + 1
+        else:
+            p = arbitrary
         time_span = list(map(str, pd.date_range(tmp.iloc[i, 7],
                                                 periods=int(p),
                                                 freq="15min")))
