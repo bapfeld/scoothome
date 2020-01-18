@@ -49,3 +49,16 @@ dat.rename(columns={'ID': 'trip_id',
                     'Trip Duration': 'duration',
                     'Trip Distance': 'distance'},
            inplace=True)
+
+
+# Smaller sample to make life easier:
+test = dat[(dat.vehicle_type == "scooter") & (dat.end_time <= pd.Timestamp("20190430T235959"))]
+
+# Make a new dataframe
+
+time_stamps = pd.date_range(test.start_time.min(),
+                            test.end_time.max(),
+                            freq="15min")
+ts = pd.DataFrame(np.zeros(len(time_stamps) * len(areas), dtype=int),
+                  index=pd.MultiIndex.from_product([areas, time_stamps]),
+                  columns=['n'])
