@@ -129,7 +129,7 @@ class ts_maker():
                         if (t.total_seconds() > 43200) and (t.total_seconds() < (86400 * 3)):
                             chunks = ((t.total_seconds() - 43200) / 60) // 15
                             # assume 12 hours for recharge and moving
-                            self.add_vehicle(tmp, i, chunks)
+                            self.add_vehicle(tmp, i, int(chunks))
                             # could add more complexity here
                 else:
                     # vehicle stayed in same area
