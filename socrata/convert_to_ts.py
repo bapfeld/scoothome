@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os, argparse
 
 dat = pd.read_csv("/home/bapfeld/scoothome/data/micro.csv",
                   dtype={'Census Tract Start': object, 'Census Tract End': object})
@@ -146,6 +147,10 @@ class ts_maker():
             else:
                 # trip ends in different area
                 self.add_vehicle(tmp, i)
+
+    def process_devices(self):
+        for idx in pd.unique(self.dat['device_id']):
+            self.where_am_i(idx)
         
 
 
@@ -163,3 +168,29 @@ for j, idx in enumerate(pd.unique(test['device_id'])):
     ts_test_2.where_am_i(idx)
 
 ts_test_2.ts.describe()
+
+def initialize_params():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--dat_path',
+        help="Path to the new data to be processed",
+        required=True,
+    )
+    parser.add_argument(
+        '--dat_out',
+        help="Path to where the data will be saved",
+        required=True,
+    )
+    return parser.parse_args()
+
+def main(dat_path):
+    dat = pd.read_csv(os.path.expanduser(dat_path),
+                  dtype={'Census Tract Start': object, 'Census Tract End': object})
+    dat = clean_df(dat)
+    tsm = ts_maker(dat)
+    tsm.process_devices()
+
+
+if __name__ == "__main__":
+    args = initialize_params()
+    main(args.dat_path)
