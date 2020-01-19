@@ -43,14 +43,14 @@ def clean_df(df):
                inplace=True)
     return df
 
-dat = clean_df(dat)
+# dat = clean_df(dat)
 
-# Smaller sample to make life easier:
-test = dat[(dat.vehicle_type == "scooter") & (dat.end_time <= pd.Timestamp("20190430T235959"))]
+# # Smaller sample to make life easier:
+# test = dat[(dat.vehicle_type == "scooter") & (dat.end_time <= pd.Timestamp("20190430T235959"))]
 
-test.reset_index(drop=True, inplace=True)
-test.sort_values(['start_time'], inplace=True)
-test.reset_index(drop=True, inplace=True)
+# test.reset_index(drop=True, inplace=True)
+# test.sort_values(['start_time'], inplace=True)
+# test.reset_index(drop=True, inplace=True)
 
 
 class ts_maker():
@@ -89,8 +89,7 @@ class ts_maker():
         self.ts.loc[pd.IndexSlice[tmp.iloc[i, 5], time_span], 'n'] += 1
 
     def where_am_i(self, idx):
-        tmp = self.dat[self.dat.device_id == idx]
-        tmp.reset_index(drop=True, inplace=True)
+        tmp = self.dat[self.dat.device_id == idx].copy()
         travel = tmp.groupby('date').sum()
         travel['device_id'] = idx
         self.travel_totals = pd.concat([self.travel_totals, travel])
