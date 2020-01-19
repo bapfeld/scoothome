@@ -59,15 +59,6 @@ test.reset_index(drop=True, inplace=True)
 test.sort_values(['start_time'], inplace=True)
 test.reset_index(drop=True, inplace=True)
 
-# Make a new dataframe
-
-time_stamps = pd.date_range(test.start_time.min(),
-                            test.end_time.max(),
-                            freq="15min")
-ts = pd.DataFrame(np.zeros(len(time_stamps) * len(areas), dtype=int),
-                  index=pd.MultiIndex.from_product([areas, time_stamps],
-                                                   names=['area', 'time']),
-                  columns=['n'])
 
 class ts_maker():
     """convert data to ts without constantly passing parameters and rewriting things
@@ -89,17 +80,18 @@ class ts_maker():
                                                            names=['area', 'time']),
                           columns=['n'])
 
-    def add_vehicle(self, tmp, arbitrary=None):
+    def add_vehicle(self, tmp, i, arbitrary=None):
         if arbitrary is None:
-            p = ((tmp.iloc[i, 3] / 60) // 15) + 1
+            # p = ((tmp.iloc[i, 3] / 60) // 15) + 1
             time_span = list(map(str, pd.date_range(tmp.iloc[i, 7],
-                                                periods=int(p),
-                                                freq="15min")))
-        else:
-            p = arbitrary
+                                                    tmp.iloc[i, 8],
+                                                    freq="15min")))
+        elif isinstance(arbitrary, int):
             time_span = list(map(str, pd.date_range(tmp.iloc[i, 8],
-                                                periods=int(p),
-                                                freq="15min")))
+                                                    periods=arbitrary,
+                                                    freq="15min")))
+        else:
+            time_span = arbitrary
         # add one vehicle to area for that time
         self.ts.loc[pd.IndexSlice[tmp.iloc[i, 5], time_span], 'n'] += 1
 
@@ -110,13 +102,14 @@ class ts_maker():
         travel['device_id'] = idx
         self.travel_totals = pd.concat([self.travel_totals, travel])
         tmp.drop_duplicates(subset=['start_time'], keep='first', inplace=True)
+        tmp.reset_index(drop=True, inplace=True)
         # final trip has to be ignored
-        for i in range(tmp.shape[0] - 2):
+        for i in range(tmp.shape[0] - 1):
             # Did the trip start and stop in the same area?
             if tmp.iloc[i, 5] == tmp.iloc[i, 6]:
                 # trip starts and ends in same area
                 # first, take care of the journey itself
-                self.add_vehicle(tmp)
+                self.add_vehicle(tmp, i)
                 
                 # What if the vehicle sits idle for a period?
                 if tmp.iloc[i, 6] != tmp.iloc[i + 1, 5]:
@@ -136,7 +129,7 @@ class ts_maker():
                         if (t.total_seconds() > 43200) and (t.total_seconds() < (86400 * 3)):
                             chunks = ((t.total_seconds() - 43200) / 60) // 15
                             # assume 12 hours for recharge and moving
-                            self.add_vehicle(tmp, chunks)
+                            self.add_vehicle(tmp, i, chunks)
                             # could add more complexity here
                 else:
                     # vehicle stayed in same area
@@ -149,15 +142,32 @@ class ts_maker():
                         # how long between the changes?
                         t = tmp.iloc[i + 1, 7] - tmp.iloc[i, 8]
                         if t.total_seconds() >= 86400:
-                            # assume 12 additional hours, then vehicle was charged
-                            self.add_vehicle(tmp, 48) 
+                            # assume 12 additional hours, then vehicle was charged if more than a day
+                            self.add_vehicle(tmp, i, 48) 
                             # could add more complexity here
+                        else:
+                            # otherwise fill in until the next ride
+                            chunks = list(map(str, pd.date_range(tmp.iloc[i, 8],
+                                                                 tmp.iloc[i + 1, 7],
+                                                                 freq="15min")))
+                            self.add_vehicle(tmp, i, chunks[1:-1])
             else:
                 # trip ends in different area
-                self.add_vehicle(tmp)
+                self.add_vehicle(tmp, i)
         
 
 
 
         
 
+ts_test = ts_maker(foo)
+ts_test.where_am_i("df2fb7a8-00ab-40ad-83d8-bc4a728e46db")
+ts_test.ts.describe()
+
+ts_test_2 = ts_maker(test)
+for i, idx in enumerate(pd.unique(test['device_id'])):
+    if i // 100 == 0:
+        print(i)
+    ts_test_2.where_am_i(idx)
+
+ts_test_2.ts.describe()
