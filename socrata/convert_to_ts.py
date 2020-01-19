@@ -183,8 +183,7 @@ def main(dat_path, dat_out):
     dat = clean_df(dat)
     tsm = ts_maker(dat)
     tsm.process_devices()
-    tsm.ts.to_csv(os.path.expanduser(dat_out),
-                  index=False)
+    tsm.ts.to_csv(os.path.expanduser(dat_out))
 
 
 if __name__ == "__main__":
