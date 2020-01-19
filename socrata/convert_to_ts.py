@@ -151,23 +151,7 @@ class ts_maker():
     def process_devices(self):
         for idx in pd.unique(self.dat['device_id']):
             self.where_am_i(idx)
-        
 
-
-
-        
-
-ts_test = ts_maker(foo)
-ts_test.where_am_i("df2fb7a8-00ab-40ad-83d8-bc4a728e46db")
-ts_test.ts.describe()
-
-ts_test_2 = ts_maker(test)
-for j, idx in enumerate(pd.unique(test['device_id'])):
-    if j % 100 == 0:
-        print(j)
-    ts_test_2.where_am_i(idx)
-
-ts_test_2.ts.describe()
 
 def initialize_params():
     parser = argparse.ArgumentParser()
