@@ -1,2 +1,3 @@
 **/*.ini
 data/micro.csv
+data/Shared_Micromobility_Vehicle_Trips.csv
