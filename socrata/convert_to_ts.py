@@ -2,10 +2,7 @@ import pandas as pd
 import numpy as np
 import os, argparse
 
-dat = pd.read_csv("/home/bapfeld/scoothome/data/micro.csv",
-                  dtype={'Census Tract Start': object, 'Census Tract End': object})
-
-def clean_df(df):
+def clean_df(df, device_type=None):
     # Need to drop observations with essential missing data
     df.dropna(inplace=True)
 
@@ -41,7 +38,21 @@ def clean_df(df):
                         'Trip Duration': 'duration',
                         'Trip Distance': 'distance'},
                inplace=True)
+
+    # Allow subset of device type
+    if device_type is not None:
+        df = df[df.vehicle_type == device_type].copy()
+
+    # Sort and reset the index
+    df.sort_values(['start_time'], inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
+    # Return the result
     return df
+
+
+# dat = pd.read_csv("/home/bapfeld/scoothome/data/micro.csv",
+#                   dtype={'Census Tract Start': object, 'Census Tract End': object})
 
 # dat = clean_df(dat)
 
