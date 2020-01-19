@@ -183,14 +183,16 @@ def initialize_params():
     )
     return parser.parse_args()
 
-def main(dat_path):
+def main(dat_path, dat_out):
     dat = pd.read_csv(os.path.expanduser(dat_path),
                   dtype={'Census Tract Start': object, 'Census Tract End': object})
     dat = clean_df(dat)
     tsm = ts_maker(dat)
     tsm.process_devices()
+    tsm.ts.to_csv(os.path.expanduser(dat_out),
+                  index=False)
 
 
 if __name__ == "__main__":
     args = initialize_params()
-    main(args.dat_path)
+    main(args.dat_path, args.dat_out)
