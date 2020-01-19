@@ -4,53 +4,45 @@ import numpy as np
 dat = pd.read_csv("/home/bapfeld/scoothome/data/micro.csv",
                   dtype={'Census Tract Start': object, 'Census Tract End': object})
 
-list(dat)
-dat.describe()
-dat.dtypes
-dat.shape
+def clean_df(df):
+    # Need to drop observations with essential missing data
+    df.dropna(inplace=True)
 
-pd.unique(dat['Vehicle Type'])
+    # And drop observations where the start/stop is out of bounds
+    df = df[df['Census Tract Start'] != 'OUT_OF_BOUNDS']
+    df = df[df['Census Tract End'] != 'OUT_OF_BOUNDS']
 
-# Need to drop observations with essential missing data
-dat.dropna(inplace=True)
+    # Want to create a new variable to uniquely identify areas
+    df['location_start_id'] = df['Council District (Start)'].astype(str) + '-' + df['Census Tract Start']
+    df['location_end_id'] = df['Council District (End)'].astype(str) + '-' + df['Census Tract End']
 
-# And drop observations where the start/stop is out of bounds
-dat = dat[dat['Census Tract Start'] != 'OUT_OF_BOUNDS']
-dat = dat[dat['Census Tract End'] != 'OUT_OF_BOUNDS']
+    # Convert time objects
+    df['start_time'] = pd.to_datetime(df['Start Time'], format="%m/%d/%Y %I:%M:%S %p")
+    df['end_time'] = pd.to_datetime(df['End Time'], format="%m/%d/%Y %I:%M:%S %p")
+    df['date'] = df['Start Time'].str.extract(r'(\d\d/\d\d/\d\d\d\d)?')
 
-# Want to create a new variable to uniquely identify areas
-dat['location_start_id'] = dat['Council District (Start)'].astype(str) + '-' + dat['Census Tract Start']
-dat['location_end_id'] = dat['Council District (End)'].astype(str) + '-' + dat['Census Tract End']
+    # Keep only the relevant information
+    drop_cols = ['Start Time',
+                 'End Time',
+                 'Modified Date',
+                 'Month',
+                 'Hour',
+                 'Day of Week',
+                 'Council District (Start)',
+                 'Council District (End)',
+                 'Year',
+                 'Census Tract Start',
+                 'Census Tract End']
+    df.drop(drop_cols, axis=1, inplace=True)
+    df.rename(columns={'ID': 'trip_id',
+                        'Device ID': 'device_id',
+                        'Vehicle Type': 'vehicle_type',
+                        'Trip Duration': 'duration',
+                        'Trip Distance': 'distance'},
+               inplace=True)
+    return df
 
-# Get all unique area identifiers
-areas = set(list(pd.unique(dat['location_start_id'])) +
-            list(pd.unique(dat['location_end_id'])))
-
-# Convert time objects
-dat['start_time'] = pd.to_datetime(dat['Start Time'], format="%m/%d/%Y %I:%M:%S %p")
-dat['end_time'] = pd.to_datetime(dat['End Time'], format="%m/%d/%Y %I:%M:%S %p")
-dat['date'] = dat['Start Time'].str.extract(r'(\d\d/\d\d/\d\d\d\d)?')
-
-# Keep only the relevant information
-drop_cols = ['Start Time',
-             'End Time',
-             'Modified Date',
-             'Month',
-             'Hour',
-             'Day of Week',
-             'Council District (Start)',
-             'Council District (End)',
-             'Year',
-             'Census Tract Start',
-             'Census Tract End']
-dat.drop(drop_cols, axis=1, inplace=True)
-dat.rename(columns={'ID': 'trip_id',
-                    'Device ID': 'device_id',
-                    'Vehicle Type': 'vehicle_type',
-                    'Trip Duration': 'duration',
-                    'Trip Distance': 'distance'},
-           inplace=True)
-
+dat = clean_df(dat)
 
 # Smaller sample to make life easier:
 test = dat[(dat.vehicle_type == "scooter") & (dat.end_time <= pd.Timestamp("20190430T235959"))]
