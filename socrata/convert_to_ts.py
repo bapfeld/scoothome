@@ -98,15 +98,15 @@ class ts_maker():
 
     def sql_create(self, replace_ts_table=False):
         if replace_ts_table:
-            self.ts.tosql('ts', self.engine, if_exists='replace')
+            self.ts.tosql('ts', self.engine, if_exists='replace', chunksize=20000)
         else:
             try:
-                self.ts_tosql('ts', self.engine, if_exists='fail')
+                self.ts.to_sql('ts', self.engine, if_exists='fail', chunksize=20000)
             except ValueError:
                 pass
 
     def write_to_sql(self):
-        ts_out = ts[ts.n != 0].copy().reset_index()
+        ts_out = self.ts[self.ts.n != 0].copy().reset_index()
         with psycopg2.connect(dbname=self.pg_db,
                               user=self.pg_username,
                               password=self.pg_password,
@@ -214,11 +214,11 @@ def split_dat(dat):
         ids = [id_list]
     return [dat[dat.device_id.isin(x)].copy().reset_index(drop=True) for x in ids]
 
-def main(dat_path, dat_out, pg):
+def main(dat_path, dat_out, vehicle_type, pg):
     create_db(pg['username'], pg['password'], 'localhost', pg['port'], pg['database'])
     dat = pd.read_csv(os.path.expanduser(dat_path),
                   dtype={'Census Tract Start': object, 'Census Tract End': object})
-    dat = clean_df(dat)
+    dat = clean_df(dat, vehicle_type)
     dat = split_dat(dat)
     for df in dat:
         tsm = ts_maker(df)
@@ -248,20 +248,25 @@ def initialize_params():
             help="Path to the .ini file containing the app token",
             required=False,
         )
+    parser.add_argument(
+            '--vehicle_type',
+            help="Type of vehicle to use. Options are scooter or scooter. Defaults to scooter",
+            default='scooter', 
+        )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = initialize_params()
     pg = import_secrets(os.path.expanduser(args.ini_path))
-    main(args.dat_path, args.dat_out, pg)
+    main(args.dat_path, args.dat_out, args.vehicle_type, pg)
 
 
 def tester(dat, max_tries, pg):
     ids = pd.unique(dat.device_id)
-    ts_main = tsm(dat)
-    ts_main.sql_setup(pg)
-    ts_main.sql_create(replace_ts_table=False)
+    # ts_main = ts_maker(dat)
+    # ts_main.sql_setup(pg)
+    # ts_main.sql_create(replace_ts_table=False)
     for i in range(max_tries):
         # sm_dat = dat[dat.device_id == ids[i]].copy()
         sm_dat = dat[dat.device_id == ids[i]] # dont think i need to copy
