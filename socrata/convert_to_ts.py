@@ -1,10 +1,10 @@
 import pandas as pd
 import numpy as np
-import os, argparse, configparser, psycopg2
+import os, argparse, configparser, re, logging, time
+import psycopg2
 from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
 from collections import Counter
-import logging, time
 from multiprocessing import Process
 
 def create_db(username, password, host, port, db_name):
@@ -237,7 +237,14 @@ def split_dat(dat):
         ids = [id_list]
     return [dat[dat.device_id.isin(x)].copy().reset_index(drop=True) for x in ids]
 
-def main(dat_path, dat_out, vehicle_type, report, multi, multi_out, pg):
+def main(dat_path,
+         dat_out,
+         vehicle_type,
+         report,
+         multi,
+         multi_out,
+         continue_process,
+         pg):
     if pg is not None:
         create_db(pg['username'], pg['password'], 'localhost', pg['port'], pg['database'])
     dat = pd.read_csv(os.path.expanduser(dat_path),
@@ -279,6 +286,10 @@ def main(dat_path, dat_out, vehicle_type, report, multi, multi_out, pg):
 
     else:
         ids = pd.unique(dat['device_id'])
+        if continue_process:
+            existing_list = [x for x in os.listdir(multi_out) if x.endswith('txt')]
+            existing_list = [re.sub('\.txt$', '', x) for x in existing_list]
+            ids = list(set(ids) - set(existing_list))
         n_cpu = os.cpu_count() - 1
         id_list = np.array_split(ids, n_cpu)
         processes = []
@@ -327,6 +338,12 @@ def initialize_params():
         help="Directory to where to store files from multi-threaded processes",
         required=False,
     )
+    parser.add_argument(
+        '--continue_process',
+        help="Should the processor pick up where it left off? Defaults to false.",
+        required=False,
+        action='store_true'
+    )
     return parser.parse_args()
 
 
@@ -338,10 +355,11 @@ if __name__ == "__main__":
         pg = import_secrets(os.path.expanduser(args.ini_path))
     else:
         pg = None
-    main(args.dat_path,
-         args.dat_out,
+    main(os.path.expanduser(args.dat_path),
+         os.path.expanduser(args.dat_out),
          args.vehicle_type,
          args.report,
          args.multi,
-         args.multi_out,
+         os.path.expanduser(args.multi_out),
+         args.continue_process, 
          pg)
