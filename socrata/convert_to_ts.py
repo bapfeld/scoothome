@@ -85,7 +85,8 @@ class ts_maker():
         self.dat = dat
         self.areas = set(list(pd.unique(self.dat['location_start_id'])) +
                          list(pd.unique(self.dat['location_end_id'])))
-        self.init_ts_df()
+        self.init_ts_list()
+        # self.init_ts_df()
         self.travel_totals = pd.DataFrame()
         self.sql_init = False
         
@@ -207,8 +208,11 @@ class ts_maker():
                 # trip ends in different area
                 self.add_vehicle(tmp, i)
 
-    def process_devices(self):
-        for idx in pd.unique(self.dat['device_id']):
+    def process_devices(self, report=None):
+        for n, idx in enumerate(pd.unique(self.dat['device_id'])):
+            if report is not None:
+                if n % report == 0:
+                    print(n)
             self.where_am_i(idx)
 
 
@@ -220,22 +224,42 @@ def split_dat(dat):
         ids = [id_list]
     return [dat[dat.device_id.isin(x)].copy().reset_index(drop=True) for x in ids]
 
-def main(dat_path, dat_out, vehicle_type, pg):
+def main(dat_path, dat_out, vehicle_type, report, pg):
     create_db(pg['username'], pg['password'], 'localhost', pg['port'], pg['database'])
     dat = pd.read_csv(os.path.expanduser(dat_path),
                   dtype={'Census Tract Start': object, 'Census Tract End': object})
     dat = clean_df(dat, vehicle_type)
-    dat = split_dat(dat)
-    for df in dat:
-        tsm = ts_maker(df)
-    # tsm.process_devices()
+    tsm = ts_maker(dat)
+    tsm.process_devices(report)
+
+    # generate the list of place-times that exist
+    places_exist = set(tsm.ts_list)
+
+    # and generate the full list
+    tsm.init_ts_df()
+    tsm.ts.reset_index(inplace=True)
+    tsm.ts['full_index'] = tsm.ts['area'] + '--' + tsm.ts['time'].astype(str)
+    full_places = set(tsm.ts['full_index'])
+
+    # and find the difference
+    missing_places = full_places - places_exist
+
+    # convert to dataframes
+    missing_df = pd.DataFrame.from_dict({k: 0 for k in missing_places},
+                                        orient='index',
+                                        columns=['n']).reset_index()
     
-    for j, val in enumerate(pd.unique(tsm.dat.device_id)):
-        if j % 100 == 0:
-            print(j)
-        tsm.where_am_i(val)
-        
-    tsm.ts.to_csv(os.path.expanduser(dat_out))
+    incomplete_df = pd.DataFrame.from_dict(Counter(tsm.ts_list),
+                                       orient='index',
+                                       columns=['n']).reset_index()
+
+    complete_df = pd.concat([incomplete_df, missing_df])
+
+    complete_df['area'] = complete_df['index'].str.extract(r'^(.*?)--')
+    complete_df['time'] = complete_df['index'].str.extract(r'--(.*?)$')
+
+    # Write the result
+    complete_df.to_csv(dat_out, columns=['area', 'time', 'n'], index=False)
 
 def initialize_params():
     parser = argparse.ArgumentParser()
@@ -259,31 +283,15 @@ def initialize_params():
             help="Type of vehicle to use. Options are scooter or scooter. Defaults to scooter",
             default='scooter', 
         )
+    parser.add_argument(
+        '--report',
+        help="Frequency of reporting how many vehicle ids have been processed.",
+        required=False,
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = initialize_params()
     pg = import_secrets(os.path.expanduser(args.ini_path))
-    main(args.dat_path, args.dat_out, args.vehicle_type, pg)
-
-
-def tester(dat, max_tries, pg):
-    ids = pd.unique(dat.device_id)
-    # ts_main = ts_maker(dat)
-    # ts_main.sql_setup(pg)
-    # ts_main.sql_create(replace_ts_table=False)
-    for i in range(max_tries):
-        # sm_dat = dat[dat.device_id == ids[i]].copy()
-        sm_dat = dat[dat.device_id == ids[i]] # dont think i need to copy
-        tsm = ts_maker(sm_dat)
-        tsm.sql_setup(pg)
-        tsm.process_devices()
-        tsm.write_to_sql()
-    return dat_out
-
-incomplete_df = pd.DataFrame.from_dict(Counter(tsm.ts_list),
-                                       orient='index',
-                                       columns='n').reset_index()
-incomplete_df['area'] = incomplete_df['index'].str.extract()
-incomplete_df['time'] = incomplete_df['index'].str.extract()
+    main(args.dat_path, args.dat_out, args.vehicle_type, args.report, pg)
