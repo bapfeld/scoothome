@@ -4,6 +4,9 @@ import os, argparse, configparser, psycopg2
 from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
 from collections import Counter
+import logging, time
+from queue import Queue
+from threading import Thread
 
 def create_db(username, password, host, port, db_name):
     engine = create_engine(f'postgresql://{username}:{password}@{host}:{port}/{db_name}')
@@ -119,6 +122,11 @@ class ts_maker():
                                  zip(ts_out.n, ts_out.time, ts_out.area))
                 conn.commit()
 
+    def ts_list_to_txt(self, out_dir, num):
+        fp = os.path.expanduser(out_dir) + "/" + num + '.txt'
+        with open(fp, 'w') as outfile:
+            outfile.writelines(x + '\n' for x in self.ts_list)
+
 
     def init_ts_df(self):
         time_stamps = pd.date_range(self.dat.start_time.min(),
@@ -211,10 +219,27 @@ class ts_maker():
     def process_devices(self, report=None):
         for n, idx in enumerate(pd.unique(self.dat['device_id'])):
             if report is not None:
-                if n % report == 0:
+                if n % int(report) == 0:
                     print(n)
             self.where_am_i(idx)
 
+class TimeSeriesWorker(Thread):
+    """Create a class for processing this in a multi-process kind of way
+
+    """
+    def __init__(self, queue):
+        Thread.__init__(self)
+        self.queue = queue
+
+    def run(self):
+        while True:
+            dat, directory, device_id = self.queue.get()
+            try:
+                tsm = ts_maker(dat)
+                tsm.where_am_i(device_id)
+                tsm.ts_list_to_txt(dat, device_id)
+            finally:
+                self.queue.task_done()
 
 def split_dat(dat):
     id_list = pd.unique(dat['device_id'])
@@ -224,42 +249,57 @@ def split_dat(dat):
         ids = [id_list]
     return [dat[dat.device_id.isin(x)].copy().reset_index(drop=True) for x in ids]
 
-def main(dat_path, dat_out, vehicle_type, report, pg):
-    create_db(pg['username'], pg['password'], 'localhost', pg['port'], pg['database'])
+def main(dat_path, dat_out, vehicle_type, report, multi, multi_out, pg):
+    if pg is not None:
+        create_db(pg['username'], pg['password'], 'localhost', pg['port'], pg['database'])
     dat = pd.read_csv(os.path.expanduser(dat_path),
                   dtype={'Census Tract Start': object, 'Census Tract End': object})
     dat = clean_df(dat, vehicle_type)
-    tsm = ts_maker(dat)
-    tsm.process_devices(report)
 
-    # generate the list of place-times that exist
-    places_exist = set(tsm.ts_list)
+    if not multi:
+        tsm = ts_maker(dat)
+        tsm.process_devices(report)
 
-    # and generate the full list
-    tsm.init_ts_df()
-    tsm.ts.reset_index(inplace=True)
-    tsm.ts['full_index'] = tsm.ts['area'] + '--' + tsm.ts['time'].astype(str)
-    full_places = set(tsm.ts['full_index'])
+        # generate the list of place-times that exist
+        places_exist = set(tsm.ts_list)
 
-    # and find the difference
-    missing_places = full_places - places_exist
+        # and generate the full list
+        tsm.init_ts_df()
+        tsm.ts.reset_index(inplace=True)
+        tsm.ts['full_index'] = tsm.ts['area'] + '--' + tsm.ts['time'].astype(str)
+        full_places = set(tsm.ts['full_index'])
 
-    # convert to dataframes
-    missing_df = pd.DataFrame.from_dict({k: 0 for k in missing_places},
-                                        orient='index',
-                                        columns=['n']).reset_index()
-    
-    incomplete_df = pd.DataFrame.from_dict(Counter(tsm.ts_list),
-                                       orient='index',
-                                       columns=['n']).reset_index()
+        # and find the difference
+        missing_places = full_places - places_exist
 
-    complete_df = pd.concat([incomplete_df, missing_df])
+        # convert to dataframes
+        missing_df = pd.DataFrame.from_dict({k: 0 for k in missing_places},
+                                            orient='index',
+                                            columns=['n']).reset_index()
 
-    complete_df['area'] = complete_df['index'].str.extract(r'^(.*?)--')
-    complete_df['time'] = complete_df['index'].str.extract(r'--(.*?)$')
+        incomplete_df = pd.DataFrame.from_dict(Counter(tsm.ts_list),
+                                           orient='index',
+                                           columns=['n']).reset_index()
 
-    # Write the result
-    complete_df.to_csv(dat_out, columns=['area', 'time', 'n'], index=False)
+        complete_df = pd.concat([incomplete_df, missing_df])
+
+        complete_df['area'] = complete_df['index'].str.extract(r'^(.*?)--')
+        complete_df['time'] = complete_df['index'].str.extract(r'--(.*?)$')
+
+        # Write the result
+        complete_df.to_csv(dat_out, columns=['area', 'time', 'n'], index=False)
+
+    else:
+        ids = pd.unique(dat['device_id'])
+        queue = Queue()
+        for x in range(os.cpu_count() - 1):
+            worker = TimeSeriesWorker(queue)
+            worker.daemon = True
+            worker.start()
+        for idx in ids:
+            logger.info(f'Queueing {idx}')
+            queue.put((dat, multi_out, idx))
+        queue.join()
 
 def initialize_params():
     parser = argparse.ArgumentParser()
@@ -271,7 +311,7 @@ def initialize_params():
     parser.add_argument(
         '--dat_out',
         help="Path to where the data will be saved",
-        required=True,
+        required=False,
     )
     parser.add_argument(
             '--ini_path',
@@ -288,10 +328,32 @@ def initialize_params():
         help="Frequency of reporting how many vehicle ids have been processed.",
         required=False,
     )
+    parser.add_argument(
+        '--multi',
+        help="Should the code be run as a multi-threaded process? If so, then multi_out must also be specified.",
+        required=False,
+        action='store_true'
+    )
+    parser.add_argument(
+        '--multi_out',
+        help="Directory to where to store files from multi-threaded processes",
+        required=False,
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
+    fmt = "%(asctime)s: %(message)s"
+    logging.basicConfig(format=fmt, level=logging.INFO, datefmt="%H:%M:%S")
     args = initialize_params()
-    pg = import_secrets(os.path.expanduser(args.ini_path))
-    main(args.dat_path, args.dat_out, args.vehicle_type, args.report, pg)
+    if args.ini_path is not None:
+        pg = import_secrets(os.path.expanduser(args.ini_path))
+    else:
+        pg = None
+    main(args.dat_path,
+         args.dat_out,
+         args.vehicle_type,
+         args.report,
+         args.multi,
+         args.multi_out,
+         pg)
