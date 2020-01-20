@@ -1,6 +1,18 @@
 import pandas as pd
 import numpy as np
-import os, argparse
+import os, argparse, configparser, psycopg2
+from sqlalchemy import create_engine
+from sqlalchemy_utils import database_exists, create_database
+
+def create_db(username, password, host, port, db_name):
+    engine = create_engine(f'postgresql://{username}:{password}@{host}:{port}/{db_name}')
+    if not database_exists(engine.url):
+        create_database(engine.url)
+
+def import_secrets(ini_path):
+    config = configparser.ConfigParser()
+    config.read(ini_path)
+    return config['postgres']
 
 def clean_df(df, device_type=None):
     # Need to drop observations with essential missing data
@@ -74,6 +86,37 @@ class ts_maker():
                          list(pd.unique(self.dat['location_end_id'])))
         self.init_ts_df()
         self.travel_totals = pd.DataFrame()
+        self.sql_init = False
+        
+    def sql_setup(self, pg):
+        self.pg_username = pg['username']
+        self.pg_password = pg['password']
+        self.pg_host = 'localhost'
+        self.pg_db = pg['database']
+        self.pg_port = pg['port']
+        self.engine = create_engine(f'postgresql://{self.pg_username}:{self.pg_password}@{self.pg_host}:{self.pg_port}/{self.pg_db}')
+
+    def sql_create(self, replace_ts_table=False):
+        if replace_ts_table:
+            self.ts.tosql('ts', self.engine, if_exists='replace')
+        else:
+            try:
+                self.ts_tosql('ts', self.engine, if_exists='fail')
+            except ValueError:
+                pass
+
+    def write_to_sql(self):
+        ts_out = ts[ts.n != 0].copy().reset_index()
+        with psycopg2.connect(dbname=self.pg_db,
+                              user=self.pg_username,
+                              password=self.pg_password,
+                              host=self.pg_host,
+                              port=self.pg_port) as conn:
+            with conn.cursor() as curs:
+                curs.executemany("""UPDATE ts SET n = n+%s WHERE (time = %s AND area = %s)""",
+                                 zip(ts_out.n, ts_out.time, ts_out.area))
+                conn.commit()
+
 
     def init_ts_df(self):
         time_stamps = pd.date_range(self.dat.start_time.min(),
@@ -163,20 +206,6 @@ class ts_maker():
             self.where_am_i(idx)
 
 
-def initialize_params():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--dat_path',
-        help="Path to the new data to be processed",
-        required=True,
-    )
-    parser.add_argument(
-        '--dat_out',
-        help="Path to where the data will be saved",
-        required=True,
-    )
-    return parser.parse_args()
-
 def split_dat(dat):
     id_list = pd.unique(dat['device_id'])
     if len(id_list) > 5000:
@@ -185,7 +214,8 @@ def split_dat(dat):
         ids = [id_list]
     return [dat[dat.device_id.isin(x)].copy().reset_index(drop=True) for x in ids]
 
-def main(dat_path, dat_out):
+def main(dat_path, dat_out, pg):
+    create_db(pg['username'], pg['password'], 'localhost', pg['port'], pg['database'])
     dat = pd.read_csv(os.path.expanduser(dat_path),
                   dtype={'Census Tract Start': object, 'Census Tract End': object})
     dat = clean_df(dat)
@@ -201,20 +231,44 @@ def main(dat_path, dat_out):
         
     tsm.ts.to_csv(os.path.expanduser(dat_out))
 
+def initialize_params():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--dat_path',
+        help="Path to the new data to be processed",
+        required=True,
+    )
+    parser.add_argument(
+        '--dat_out',
+        help="Path to where the data will be saved",
+        required=True,
+    )
+    parser.add_argument(
+            '--ini_path',
+            help="Path to the .ini file containing the app token",
+            required=False,
+        )
+    return parser.parse_args()
+
 
 if __name__ == "__main__":
     args = initialize_params()
-    main(args.dat_path, args.dat_out)
+    pg = import_secrets(os.path.expanduser(args.ini_path))
+    main(args.dat_path, args.dat_out, pg)
 
 
-def tester(dat, max_tries):
-    dat_out = ts_maker(dat).ts
+def tester(dat, max_tries, pg):
     ids = pd.unique(dat.device_id)
+    ts_main = tsm(dat)
+    ts_main.sql_setup(pg)
+    ts_main.sql_create(replace_ts_table=False)
     for i in range(max_tries):
-        sm_dat = dat[dat.device_id == ids[i]].copy().reset_index(drop=True)
+        # sm_dat = dat[dat.device_id == ids[i]].copy()
+        sm_dat = dat[dat.device_id == ids[i]] # dont think i need to copy
         tsm = ts_maker(sm_dat)
+        tsm.sql_setup(pg)
         tsm.process_devices()
-        dat_out = dat_out.add(tsm.ts, fill_value=0)
+        tsm.write_to_sql()
     return dat_out
 
 foo = tester(dat, 100)
