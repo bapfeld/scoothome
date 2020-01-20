@@ -3,6 +3,7 @@ import numpy as np
 import os, argparse, configparser, psycopg2
 from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
+from collections import Counter
 
 def create_db(username, password, host, port, db_name):
     engine = create_engine(f'postgresql://{username}:{password}@{host}:{port}/{db_name}')
@@ -127,6 +128,9 @@ class ts_maker():
                                                            names=['area', 'time']),
                           columns=['n'])
 
+    def init_ts_list(self):
+        self.ts_list = []
+
     def add_vehicle(self, tmp, i, arbitrary=None):
         if arbitrary is None:
             # p = ((tmp.iloc[i, 3] / 60) // 15) + 1
@@ -140,7 +144,9 @@ class ts_maker():
         else:
             time_span = arbitrary
         # add one vehicle to area for that time
-        self.ts.loc[pd.IndexSlice[tmp.iloc[i, 5], time_span], 'n'] += 1
+        # self.ts.loc[pd.IndexSlice[tmp.iloc[i, 5], time_span], 'n'] += 1
+        new_list = [tmp.iloc[i, 5] + '--' + x for x in time_span]
+        self.ts_list.extend(new_list)
 
     def where_am_i(self, idx):
         tmp = self.dat[self.dat.device_id == idx].copy()
@@ -276,4 +282,8 @@ def tester(dat, max_tries, pg):
         tsm.write_to_sql()
     return dat_out
 
-foo = tester(dat, 100)
+incomplete_df = pd.DataFrame.from_dict(Counter(tsm.ts_list),
+                                       orient='index',
+                                       columns='n').reset_index()
+incomplete_df['area'] = incomplete_df['index'].str.extract()
+incomplete_df['time'] = incomplete_df['index'].str.extract()
