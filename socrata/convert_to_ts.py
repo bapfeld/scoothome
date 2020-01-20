@@ -5,8 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy_utils import database_exists, create_database
 from collections import Counter
 import logging, time
-from queue import Queue
-from threading import Thread
+from multiprocessing import Process
 
 def create_db(username, password, host, port, db_name):
     engine = create_engine(f'postgresql://{username}:{password}@{host}:{port}/{db_name}')
@@ -223,23 +222,12 @@ class ts_maker():
                     print(n)
             self.where_am_i(idx)
 
-class TimeSeriesWorker(Thread):
-    """Create a class for processing this in a multi-process kind of way
 
-    """
-    def __init__(self, queue):
-        Thread.__init__(self)
-        self.queue = queue
-
-    def run(self):
-        while True:
-            dat, directory, device_id = self.queue.get()
-            try:
-                tsm = ts_maker(dat)
-                tsm.where_am_i(device_id)
-                tsm.ts_list_to_txt(dat, device_id)
-            finally:
-                self.queue.task_done()
+def multi_single_id(idx_list, dat, out_dir):
+    for i in idx_list:
+        tsm = ts_maker(dat)
+        tsm.where_am_i(i)
+        tsm.ts_list_to_txt(out_dir, i)
 
 def split_dat(dat):
     id_list = pd.unique(dat['device_id'])
@@ -291,15 +279,15 @@ def main(dat_path, dat_out, vehicle_type, report, multi, multi_out, pg):
 
     else:
         ids = pd.unique(dat['device_id'])
-        queue = Queue()
-        for x in range(os.cpu_count() - 1):
-            worker = TimeSeriesWorker(queue)
-            worker.daemon = True
-            worker.start()
-        for idx in ids:
-            logger.info(f'Queueing {idx}')
-            queue.put((dat, multi_out, idx))
-        queue.join()
+        n_cpu = os.cpu_count() - 1
+        id_list = np.array_split(ids, n_cpu)
+        processes = []
+        for i, idl in enumerate(id_list):
+            proc = Process(target=multi_single_id, args=(idl, dat, multi_out))
+            processes.append(proc)
+            proc.start()
+        for proc in processes:
+            proc.join()
 
 def initialize_params():
     parser = argparse.ArgumentParser()
