@@ -177,15 +177,44 @@ def initialize_params():
     )
     return parser.parse_args()
 
+def split_dat(dat):
+    id_list = pd.unique(dat['device_id'])
+    if len(id_list) > 5000:
+        ids = np.array_split(id_list, len(id_list) // 5000)
+    else:
+        ids = [id_list]
+    return [dat[dat.device_id.isin(x)].copy().reset_index(drop=True) for x in ids]
+
 def main(dat_path, dat_out):
     dat = pd.read_csv(os.path.expanduser(dat_path),
                   dtype={'Census Tract Start': object, 'Census Tract End': object})
     dat = clean_df(dat)
-    tsm = ts_maker(dat)
-    tsm.process_devices()
+    dat = split_dat(dat)
+    for df in dat:
+        tsm = ts_maker(df)
+    # tsm.process_devices()
+    
+    for j, val in enumerate(pd.unique(tsm.dat.device_id)):
+        if j % 100 == 0:
+            print(j)
+        tsm.where_am_i(val)
+        
     tsm.ts.to_csv(os.path.expanduser(dat_out))
 
 
 if __name__ == "__main__":
     args = initialize_params()
     main(args.dat_path, args.dat_out)
+
+
+def tester(dat, max_tries):
+    dat_out = ts_maker(dat).ts
+    ids = pd.unique(dat.device_id)
+    for i in range(max_tries):
+        sm_dat = dat[dat.device_id == ids[i]].copy().reset_index(drop=True)
+        tsm = ts_maker(sm_dat)
+        tsm.process_devices()
+        dat_out = dat_out.add(tsm.ts, fill_value=0)
+    return dat_out
+
+foo = tester(dat, 100)
