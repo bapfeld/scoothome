@@ -1,3 +1,6 @@
 **/*.ini
 data/micro.csv
 data/Shared_Micromobility_Vehicle_Trips.csv
+data/nano.csv
+data/nano_ts.csv
+data/time_series.csv
