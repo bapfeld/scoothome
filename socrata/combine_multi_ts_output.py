@@ -1,4 +1,6 @@
 import os, argparse
+from collections import Counter
+import pandas as pd
 
 def main(dir_path, dat_path, calculate_missing, out_path):
     event_list = []
@@ -7,9 +9,19 @@ def main(dir_path, dat_path, calculate_missing, out_path):
     for f in f_list:
         with open(f, 'r') as f_in:
             event_list.extend(f_in.readlines())
-    with open(out_path, 'w') as f_out:
-        f_out.writelines(event_list)
-    
+    if calculate_missing:
+        pass
+    else:
+        counts = pd.DataFrame.from_dict(Counter(event_list),
+                                        orient='index',
+                                        columns=['n']).reset_index()
+        counts['area'] = counts['index'].str.extract(r'^(.*?)--')
+        counts['time'] = counts['index'].str.extract(r'--(.*?)$')
+
+    # write out again
+    counts.to_csv(out_path,
+                  columns=['area', 'time', 'n'],
+                  index=False)    
 
 def initialize_params():
         parser = argparse.ArgumentParser()
