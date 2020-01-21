@@ -356,7 +356,7 @@ if __name__ == "__main__":
     else:
         pg = None
     main(os.path.expanduser(args.dat_path),
-         os.path.expanduser(args.dat_out),
+         args.dat_out,
          args.vehicle_type,
          args.report,
          args.multi,
