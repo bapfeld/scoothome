@@ -4,3 +4,5 @@ CREATE TABLE ts
   time TIMESTAMP,
   n int
 );
+
+COPY ts FROM '/home/postgres/empty_db.csv' DELIMITER ',' CSV HEADER;
