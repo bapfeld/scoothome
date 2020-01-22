@@ -1,11 +1,13 @@
 CREATE TABLE ts
 (
-  area varchar(16),
+  area VARCHAR(16),
+  district INT,
+  tract BIGINT,
   time TIMESTAMP,
-  n int
+  N INT
 );
 
-COPY ts FROM '/home/postgres/empty_db.csv' DELIMITER ',' CSV HEADER;
+COPY ts FROM '/home/postgres/db.csv' DELIMITER ',' CSV HEADER;
 
 CREATE TABLE weather
 (

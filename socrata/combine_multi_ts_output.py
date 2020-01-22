@@ -89,8 +89,8 @@ def main(dir_path, dat_path, calculate_missing, out_path):
         counts = pd.concat([counts, missing_df])
 
     # Separate out the identifying variables again
-    counts['district'] = counts['area'].str.extract(r'(^.*?)-')
-    counts['tract'] = counts['area'].str.extract(r'-(.*?$)')
+    counts['district'] = counts['area'].str.extract(r'(^.*?)-').astype(float).astype(int)
+    counts['tract'] = counts['area'].str.extract(r'-(.*?$)').astype(int)
     
     # write out again
     counts.to_csv(out_path,
