@@ -87,10 +87,14 @@ def main(dir_path, dat_path, calculate_missing, out_path):
                                             orient='index',
                                             columns=['n']).reset_index()
         counts = pd.concat([counts, missing_df])
+
+    # Separate out the identifying variables again
+    counts['district'] = counts['area'].str.extract(r'(^.*?)-')
+    counts['tract'] = counts['area'].str.extract(r'-(.*?$)')
     
     # write out again
     counts.to_csv(out_path,
-                  columns=['area', 'time', 'n'],
+                  columns=['area', 'district', 'tract', 'time', 'n'],
                   index=False)    
 
 def initialize_params():
