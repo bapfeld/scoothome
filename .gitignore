@@ -5,4 +5,5 @@ data/nano.csv
 data/nano_ts.csv
 data/time_series.csv
 data/device_records/*.txt
+data/device_records_small/*.txt
 data/sample_full_list.csv
