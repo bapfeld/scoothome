@@ -3,6 +3,8 @@ import configparser, argparse
 import os
 import psycopg2
 from fbprophet import Prophet
+from darksky.api import DarkSky
+from darksky.types import languages, units, weather
 
 def import_secrets(ini_path):
     config = configparser.ConfigParser()
@@ -13,12 +15,17 @@ class tsModel():
     """Class to query required underlying data, estimate a model, and forecast.
 
     """
-    def __init__(self, pg):
+    def __init__(self, pg, ds_key):
         self.conn = psycopg2.connect(database=pg['database'],
                                      user=pg['username'],
                                      password=pg['password'],
                                      port=pg['port'],
                                      host=pg['host'])
+        self.ds_key = ds_key
+        self.init_ds_obj()
+        
+    def init_ds_obj(self):
+        self.ds = DarkSky(self.ds_key)
         
     def get_area_series(self, idx):
         q = f'SELECT * FROM ts WHERE area = {idx}'
@@ -51,11 +58,33 @@ class tsModel():
     def build_prediction_df(self, periods=72):
         self.get_weather_pred()
         future = self.model.make_future_dataframe(periods=periods, freq='H')
-        self.future = pd.merge(future, self.future_weather, how='',
+        self.future = pd.merge(future, self.future_weather, how='left',
                                left_on='ds', right_on='time')
 
-    def get_weather_pred(self):
-        pass
+    def get_weather_pred(self, lat, lon):
+        w_pred = self.ds.get_forecast(lat, lon,
+                                      extend=False,
+                                      lang=languages.ENGLISH,
+                                      units=units.AUTO,
+                                      exclude=[weather.MINUTELY, weather.ALERTS],
+                                      timezone='UTC')
+        times = [x.time for x in w_pred.hourly.data]
+        temps = [x.temperature for x in w_pred.hourly.data]
+        precips = [x.precip_intensity for x in w_pred.hourly.data]
+        rain_prob = [x.precip_probability for x in w_pred.hourly.data]
+        humidities = [x.humidity for x in w_pred.hourly.data]
+        wind = [x.wind_speed for x in w_pred.hourly.data]
+        clouds = [x.cloud_cover for x in w_pred.hourly.data]
+        uv = [x.uv_index for x in w_pred.hourly.data]
+        self.future_weather = pd.DataFrame({'time': times,
+                                            'temp': temps,
+                                            'current_rain': precips,
+                                            'rain_prob': rain_prob,
+                                            'humidity': humidities,
+                                            'wind': wind,
+                                            'cloud_cover': clouds,
+                                            'uv': uv})
+        self.future_weather.resample('15T', on='time').pad()
 
     def predict(self):
         pass
@@ -64,8 +93,8 @@ class tsModel():
         pass
         
 
-def main(pg):
-    m = tsModel(pg)
+def main(pg, ds_key):
+    m = tsModel(pg, ds_key)
 
 
 def initialize_params():
