@@ -20,3 +20,24 @@ CREATE TABLE weather
   cloud_cover REAL,
   uv INT
 );
+
+CREATE TABLE rides
+(
+  ride_id CHAR(36),
+  device_id CHAR(36),
+  vehicle_type TEXT,
+  trip_duration INT,
+  trip_distance INT,
+  start_time TIMESTAMP,
+  end_time TIMESTAMP,
+  modified_date TIMESTAMP,
+  month SMALLINT,
+  hour SMALLINT,
+  council_district_start INT,
+  council_district_end INT,
+  year SMALLINT,
+  census_tract_start BIGINT,
+  census_tract_end BIGINT
+);
+
+COPY rides FROM '/home/postgres/rides.csv' DELIMITER ',' CSV HEADER;
