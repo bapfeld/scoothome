@@ -9,7 +9,7 @@ COPY ts FROM '/home/postgres/empty_db.csv' DELIMITER ',' CSV HEADER;
 
 CREATE TABLE weather
 (
-  time TIMESTAMP,
+  time TIMESTAMP UNIQUE,
   temp REAL,
   current_rain REAL,
   rain_prob REAL,
