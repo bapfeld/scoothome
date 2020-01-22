@@ -10,10 +10,6 @@ def import_secrets(ini_path):
     config.read(ini_path)
     return (config['postgres'], config['darksky']['key'])
     
-def write_to_db(database, user, password, port):
-    pass
-
-
 def initialize_params():
     parser = argparse.ArgumentParser()
     parser.add_argument(
