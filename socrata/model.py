@@ -87,11 +87,11 @@ class tsModel():
         self.future_weather.resample('15T', on='time').pad()
 
     def predict(self):
-        pass
+        self.fcst = self.model.predict(self.future)
 
-    def plot_results(self):
-        pass
-        
+    def plot_results(self, outfile):
+        fig = self.model.plot(self.fcst)
+        fig.savefig(outfile)
 
 def main(pg, ds_key):
     m = tsModel(pg, ds_key)
