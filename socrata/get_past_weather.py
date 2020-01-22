@@ -1,9 +1,9 @@
-import pandas as pd
 import configparser, argparse
 import os, datetime
 import psycopg2
 from darksky.api import DarkSky
 from darksky.types import languages, units, weather
+import time
 
 def import_secrets(ini_path):
     config = configparser.ConfigParser()
@@ -24,7 +24,7 @@ def initialize_params():
     )
     parser.add_argument(
         '--end_day',
-        help="String representation of when to stop requesting daily data. E.g. 2019-12-31",
+        help="String representation of when to stop requesting daily data (inclusive). E.g. 2019-12-31",
         required=True,
     )
     return parser.parse_args()
@@ -36,27 +36,30 @@ class historicalWeather():
     def __init__(self, pg, ds_key):
         self.pg_username = pg['username']
         self.pg_password = pg['password']
-        self.pg_host = pg['localhost']
+        self.pg_host = pg['host']
         self.pg_db = pg['database']
         self.pg_port = pg['port']
         self.ds_key = ds_key
         self.atx_lat = 30.267151
         self.atx_lon = -97.743057
+        self.ds_key = ds_key
         self.init_ds_obj()
 
-    def write_to_sql(self, results):
+    def write_to_sql(self, times, temps, precips, rain_prob, humidities, wind, clouds, uv):
         with psycopg2.connect(dbname=self.pg_db,
                               user=self.pg_username,
                               password=self.pg_password,
                               host=self.pg_host,
                               port=self.pg_port) as conn:
             with conn.cursor() as curs:
-                pg_query = """INSERT INTO weather VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
-                curs.executemany(pg_query, results)
+                pg_query = """INSERT INTO weather 
+                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                              ON CONFLICT DO NOTHING"""
+                curs.executemany(pg_query, zip(times, temps, precips, rain_prob, humidities, wind, clouds, uv))
                 conn.commit()
 
     def init_ds_obj(self):
-        self.ds = DarkSky(ds_key)
+        self.ds = DarkSky(self.ds_key)
         
     def fetch_day_history(self, day):
         try:
@@ -74,8 +77,7 @@ class historicalWeather():
             wind = [x.wind_speed for x in hist.hourly.data]
             clouds = [x.cloud_cover for x in hist.hourly.data]
             uv = [x.uv_index for x in hist.hourly.data]
-            res = zip(times, temps, precips, rain_prob, humidities, wind, clouds, uv)
-            self.write_to_sql(res)
+            self.write_to_sql(times, temps, precips, rain_prob, humidities, wind, clouds, uv)
         except:
             pass
 
@@ -95,8 +97,10 @@ def main():
 
     # create an object and make requests
     w = historicalWeather(pg, ds_key)
-    for day in days:
+    for i, day in enumerate(days):
+        # print(i)
         w.fetch_day_history(day)
+        time.sleep(1)
 
 
 
