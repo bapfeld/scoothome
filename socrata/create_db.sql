@@ -23,16 +23,17 @@ CREATE TABLE weather
 
 CREATE TABLE rides
 (
-  ride_id CHAR(36),
+  trip_id CHAR(36),
   device_id CHAR(36),
   vehicle_type TEXT,
-  trip_duration INT,
-  trip_distance INT,
+  duration INT,
+  distance INT,
   start_time TIMESTAMP,
   end_time TIMESTAMP,
   modified_date TIMESTAMP,
   month SMALLINT,
   hour SMALLINT,
+  day_of_week SMALLINT,
   council_district_start INT,
   council_district_end INT,
   year SMALLINT,
