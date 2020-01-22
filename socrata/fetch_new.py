@@ -7,7 +7,9 @@ import psycopg2
 def import_secrets(ini_path):
     config = configparser.ConfigParser()
     config.read(ini_path)
-    return (config['socrata']['app_token'], config['postgres'])
+    return (config['socrata']['app_token'],
+            config['postgres'],
+            config['openweather']['key'])
     
 
 def get_max_date():
@@ -34,7 +36,7 @@ def main():
         )
         return parser.parse_args()
     args = initialize_params()
-    app_token, pg = import_secrets(os.path.expanduser(args.ini_path))
+    app_token, pg, ow_key = import_secrets(os.path.expanduser(args.ini_path))
 
     # Establish a client to query the database
     client = Socrata("data.austintexas.gov", app_token)
