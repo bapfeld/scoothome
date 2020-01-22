@@ -82,9 +82,14 @@ class historicalWeather():
             pass
 
 
-def daterange(start_date, end_date):
-    for n in range(int((end_date - start_date).days) + 1):
-        yield start_date + datetime.timedelta(n)
+def daterange(start_date, end_date, inclusive=True):
+    if inclusive:
+        for n in range(int((end_date - start_date).days) + 1):
+            yield start_date + datetime.timedelta(n)
+    else:
+        for n in range(int((end_date - start_date).days)):
+            yield start_date + datetime.timedelta(n)
+            
         
 def main():    
     args = initialize_params()
