@@ -4,7 +4,16 @@ from wtforms import Form, TextField, TextAreaField, validators, StringField, Sub
 import datetime, re, requests
 import shapefile
 from shapely.geometry import Point, Polygon
-from model import tsModel, initialize_params # will need to check that this is loaded correctly
+from scoothome.model import tsModel, initialize_params, import_secrets
+import pandas as pd
+import configparser, argparse
+import os
+import psycopg2
+from fbprophet import Prophet
+from darksky.api import DarkSky
+from darksky.types import languages, units, weather
+
+
 
 app = Flask(__name__)
 
@@ -73,13 +82,13 @@ def index():
 @app.route('/results', methods=['POST'])
 def results():
     if request.method == 'POST':
-        input_location = request.form.get('location')
+        input_location = request.form.get('destination')
         time = request.form.get('time')
         location = geocode_location(input_location)
         if location[0] is None:
             reload_after_error("Whoops, looks like we can't find that location on the map. Pleast try again.")
         area = loc_to_area(location)
-        pred = make_prediction(area, time, location[0], location[1])
+        pred = make_prediction(area, pg, ds_key, location[0], location[1])
         if area is None:
             reload_after_error("Whoops, looks like that location isn't in Austin! Please try again.")
 
