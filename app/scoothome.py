@@ -4,6 +4,7 @@ from wtforms import Form, TextField, TextAreaField, validators, StringField, Sub
 import datetime, re, requests
 import shapefile
 from shapely.geometry import Point, Polygon
+from model import tsModel, initialize_params # will need to check that this is loaded correctly
 
 app = Flask(__name__)
 
@@ -39,8 +40,7 @@ def loc_to_area(location):
                 poly = Polygon(shp.shape(i).points)
                 if poly.contains(p_rev):
                     tract = str(shp.record(i)[3])
-                    break
-            
+                    break            
     # get council district
     with shapefile.Reader('/home/bapfeld/scoothome/data/council_districts/council_districts') as shp:
         for i, shape in enumerate(shp.shapes()):
@@ -48,18 +48,21 @@ def loc_to_area(location):
             if poly.contains(p_rev):
                 district = str(shp.record(i)[0])
                 break
-
     # construct the area variable
     if (tract is None) or (district is None):
         area = None
     else:
         area = district + '-' + tract
-
     return area
 
 def reload_after_error(error):
     now = calc_nowish()
     return render_template('index.html', now=now, error=error)
+
+def make_prediction(area, pg, ds_key, lat, lon):
+    m = tsModel(pg, ds_key)
+    m.run(area, lat, lon)
+    plot_res = m.fig
 
 # Define routes
 @app.route('/', methods=['GET'])
@@ -76,10 +79,13 @@ def results():
         if location[0] is None:
             reload_after_error("Whoops, looks like we can't find that location on the map. Pleast try again.")
         area = loc_to_area(location)
+        pred = make_prediction(area, time, location[0], location[1])
         if area is None:
             reload_after_error("Whoops, looks like that location isn't in Austin! Please try again.")
 
     return render_template('results.html', lat=lat, lon=lon, time=time)
 
 if __name__ == "__main__":
+    args = initialize_params()
+    pg, ds_key = import_secrets(os.path.expanduser(args.ini_path))
     app.run(host='0.0.0.0', debug=False)

@@ -89,9 +89,19 @@ class tsModel():
     def predict(self):
         self.fcst = self.model.predict(self.future)
 
-    def plot_results(self, outfile):
-        fig = self.model.plot(self.fcst)
-        fig.savefig(outfile)
+    def plot_results(self):
+        self.fig = self.model.plot(self.fcst)
+        #fig.savefig(outfile)
+
+    def run(self, area_key, lat, lon):
+        self.get_area_series(area_key)
+        self.get_weather_data(lat, lon)
+        self.prep_model_data()
+        self.build_model()
+        self.train_model()
+        self.build_prediction_df()
+        self.predict()
+        self.plot_results()
 
 def main(pg, ds_key):
     m = tsModel(pg, ds_key)
