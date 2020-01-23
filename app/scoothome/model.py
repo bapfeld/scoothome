@@ -41,7 +41,7 @@ class tsModel():
     def prep_model_data(self):
         self.dat = pd.merge(self.area_series, self.weather, how='right', on='time')
         self.dat['n'].fillna(0, inplace=True)
-        self.dat.drop(columns=['area'], inplace=True)
+        self.dat.drop(columns=['area', 'district', 'tract'], inplace=True)
         self.dat.rename(columns={'time': 'ds', 'n': 'y'}, inplace=True)
 
     def build_model(self, scale=0.05, varlist=['temp', 'current_rain',
