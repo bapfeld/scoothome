@@ -55,11 +55,11 @@ class tsModel():
     def train_model(self):
         self.model.fit(self.dat)
 
-    def build_prediction_df(self, lat, lon, periods=72):
+    def build_prediction_df(self, lat, lon, periods=48):
         self.get_weather_pred(lat, lon)
         future = self.model.make_future_dataframe(periods=periods, freq='H')
-        self.future = pd.merge(future, self.future_weather, how='left',
-                               left_on='ds', right_on='time')
+        self.future = pd.merge(future, self.weather, how='left', left_on='ds', right_on='time')
+        self.future.update(self.future_weather)
 
     def get_weather_pred(self, lat, lon):
         w_pred = self.ds.get_forecast(lat, lon,
