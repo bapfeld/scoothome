@@ -2,6 +2,8 @@
 from flask import Flask, render_template, flash, request, redirect, url_for
 from wtforms import Form, TextField, TextAreaField, validators, StringField, SubmitField
 import datetime, re, requests
+import shapefile
+from shapely.geometry import Point, Polygon
 
 app = Flask(__name__)
 
@@ -23,6 +25,42 @@ def calc_nowish():
                             15*round((float(now.minute) + float(now.second) / 60) // 15))
     now = now.strftime("%m-%d-%Y %H:%M")
     return now
+
+def loc_to_area(location):
+    lat, lon = location
+    p = Point(lat, lon)
+    p_rev = Point(lon, lat)
+    tract = None
+    district = None
+    # get census tract
+    with shapefile.Reader('/home/bapfeld/scoothome/data/census_tracts/census_tracts') as shp:
+        for i, rec in enumerate(shp.records()):
+            if rec[2] == 453:
+                poly = Polygon(shp.shape(i).points)
+                if poly.contains(p_rev):
+                    tract = str(shp.record(i)[3])
+                    break
+            
+    # get council district
+    with shapefile.Reader('/home/bapfeld/scoothome/data/council_districts/council_districts') as shp:
+        for i, shape in enumerate(shp.shapes()):
+            poly = Polygon(shape.points)
+            if p.within(poly):
+                district = str(shp.records(i)[1])
+                break
+
+    # construct the area variable
+    if (tract is None) or (district is None):
+        area = None
+    else:
+        area = district + '48453' + '0' * (6 - len(tract)) + tract
+
+    return area
+
+def reload_after_error(error):
+    now = calc_nowish()
+    return render_template('index.html', now=now, error=error)
+
 # Define routes
 @app.route('/', methods=['GET'])
 def index():
@@ -36,11 +74,11 @@ def results():
         time = request.form.get('time')
         location = geocode_location(input_location)
         if location[0] is None:
-            error = "Whoops, looks like we can't find that location on the map. Pleast try again."
-            now = calc_nowish()
-            return render_template('index.html', now=now)
-        else:
-            lat, lon = location
+            reload_after_error("Whoops, looks like we can't find that location on the map. Pleast try again.")
+        area = loc_to_area(location)
+        if area is None:
+            reload_after_error("Whoops, looks like that location isn't in Austin! Please try again.")
+
     return render_template('results.html', lat=lat, lon=lon, time=time)
 
 if __name__ == "__main__":
