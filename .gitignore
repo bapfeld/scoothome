@@ -7,3 +7,5 @@ data/time_series.csv
 data/device_records/*.txt
 data/device_records_small/*.txt
 data/sample_full_list.csv
+data/jan_19_ts.csv
+data/full_ts.csv
