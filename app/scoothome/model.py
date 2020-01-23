@@ -34,9 +34,9 @@ class tsModel():
     def get_weather_data(self):
         start_time = self.area_series['time'].min()
         end_time = self.area_series['time'].max()
-        q = f'SELECT * FROM weather WHERE (time >= {start_time} & time <= {end_time})'
+        q = f"SELECT * FROM weather WHERE time >= '{start_time}' AND time <= '{end_time}'"
         self.weather = pd.read_sql_query(q, self.conn)
-        self.weather.resample('15T', on='time').pad()
+        self.weather = self.weather.set_index('time').resample('15T').pad()
 
     def prep_model_data(self):
         self.dat = pd.merge(self.area_series, self.weather, how='right', on='time')
@@ -55,8 +55,8 @@ class tsModel():
     def train_model(self):
         self.model.fit(self.dat)
 
-    def build_prediction_df(self, periods=72):
-        self.get_weather_pred()
+    def build_prediction_df(self, lat, lon, periods=72):
+        self.get_weather_pred(lat, lon)
         future = self.model.make_future_dataframe(periods=periods, freq='H')
         self.future = pd.merge(future, self.future_weather, how='left',
                                left_on='ds', right_on='time')
@@ -95,11 +95,11 @@ class tsModel():
 
     def run(self, area_key, lat, lon):
         self.get_area_series(area_key)
-        self.get_weather_data(lat, lon)
+        self.get_weather_data()
         self.prep_model_data()
         self.build_model()
         self.train_model()
-        self.build_prediction_df()
+        self.build_prediction_df(lat, lon)
         self.predict()
         self.plot_results()
 
