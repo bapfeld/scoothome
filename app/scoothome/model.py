@@ -28,7 +28,7 @@ class tsModel():
         self.ds = DarkSky(self.ds_key)
         
     def get_area_series(self, idx):
-        q = f'SELECT * FROM ts WHERE area = {idx}'
+        q = f"SELECT * FROM ts WHERE area = '{idx}'"
         self.area_series = pd.read_sql_query(q, self.conn)
 
     def get_weather_data(self):
