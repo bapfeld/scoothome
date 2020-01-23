@@ -9,13 +9,19 @@ def clean_df(df):
     df = df[df['Census Tract Start'] != 'OUT_OF_BOUNDS']
     df = df[df['Census Tract End'] != 'OUT_OF_BOUNDS']
 
-    # Want to create a new variable to uniquely identify areas
-    df['location_start_id'] = df['Council District (Start)'].astype(str) + '-' + df['Census Tract Start']
-    df['location_end_id'] = df['Council District (End)'].astype(str) + '-' + df['Census Tract End']
-
     # Convert time objects
     df['start_time'] = pd.to_datetime(df['Start Time'], format="%m/%d/%Y %I:%M:%S %p")
     df['end_time'] = pd.to_datetime(df['End Time'], format="%m/%d/%Y %I:%M:%S %p")
+
+    # Convert some data typees
+    df['Council District (Start)'] = df['Council District (Start)'].astype(float).astype(int)
+    df['Council District (End)'] = df['Council District (End)'].astype(float).astype(int)
+    df['Census Tract Start'] = df['Census Tract Start'].astype(int)
+    df['Census Tract End'] = df['Census Tract End'].astype(int)
+    df['Month'] = df['Month'].astype(int)
+    df['Hour'] = df['Hour'].astype(int)
+    df['Day of Week'] = df['Day of Week'].astype(int)
+    df['Year'] = df['Year'].astype(int)
     
     df.rename(columns={'ID': 'trip_id',
                        'Device ID': 'device_id',
@@ -32,6 +38,7 @@ def clean_df(df):
                        'Census Tract Start': 'census_tract_start',
                        'Census Tract End': 'census_tract_end'},
                inplace=True)
+    return df
 
 dat = pd.read_csv('/home/bapfeld/scoothome/data/Shared_Micromobility_Vehicle_Trips.csv',
                   dtype={'Census Tract Start': object, 'Census Tract End': object})
