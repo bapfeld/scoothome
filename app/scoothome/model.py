@@ -84,7 +84,7 @@ class tsModel():
                                             'wind': wind,
                                             'cloud_cover': clouds,
                                             'uv': uv})
-        self.future_weather.resample('15T', on='time').pad()
+        self.future_weather = self.future_weather.set_index('time').resample('15T').pad()
 
     def predict(self):
         self.fcst = self.model.predict(self.future)
