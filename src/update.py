@@ -21,7 +21,7 @@ class historicalWeather():
 
     """
     def __init__(self, pg, ds_key, max_date=None):
-        self.max_date = max_weather_date
+        self.max_date = max_date
         self.pg_username = pg['username']
         self.pg_password = pg['password']
         self.pg_host = pg['host']
@@ -33,9 +33,7 @@ class historicalWeather():
         self.ds_key = ds_key
         self.init_ds_obj()
 
-    def write_to_sql(self):
-        if max_date is not None:
-            self.new_weather = self.new_weather[self.new_weather['time'] > max_date]
+    def write_to_sql(self, times, temps, precips, rain_prob, humidities, wind, clouds, uv):
         with psycopg2.connect(dbname=self.pg_db,
                               user=self.pg_username,
                               password=self.pg_password,
@@ -44,9 +42,8 @@ class historicalWeather():
             with conn.cursor() as curs:
                 pg_query = """INSERT INTO weather 
                               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                              ON CONFLICT (time) DO NOTHING"""
-                for idx, r in self.new_weather.iterrows():
-                    curs.execute(pg_query, row.values)
+                              ON CONFLICT DO NOTHING"""
+                curs.executemany(pg_query, zip(times, temps, precips, rain_prob, humidities, wind, clouds, uv))
                 conn.commit()
 
     def init_ds_obj(self):
@@ -61,22 +58,31 @@ class historicalWeather():
                                                      timezone='UTC',
                                                      time=day)
             times = [x.time for x in hist.hourly.data]
+            time_check = [x > pd.to_datetime(self.max_date, utc=True) for x in times]
+            times = [val for (val, boolean) in zip(times, time_check) if boolean]
             temps = [x.temperature for x in hist.hourly.data]
+            temps = [val for (val, boolean) in zip(temps, time_check) if boolean]
             precips = [x.precip_intensity for x in hist.hourly.data]
+            precips = [val for (val, boolean) in zip(precips, time_check) if boolean]
             rain_prob = [x.precip_probability for x in hist.hourly.data]
+            rain_prob = [val for (val, boolean) in zip(rain_prob, time_check) if boolean]
             humidities = [x.humidity for x in hist.hourly.data]
+            humidities = [val for (val, boolean) in zip(humidities, time_check) if boolean]
             wind = [x.wind_speed for x in hist.hourly.data]
+            wind = [val for (val, boolean) in zip(wind, time_check) if boolean]
             clouds = [x.cloud_cover for x in hist.hourly.data]
+            clouds = [val for (val, boolean) in zip(clouds, time_check) if boolean]
             uv = [x.uv_index for x in hist.hourly.data]
-            self.new_weather = pd.DataFrame({'time': times, 
-                                             'temp': temps,
-                                             'current_rain': precips,
-                                             'rain_prob': rain_prob,
-                                             'humidity': humidities,
-                                             'wind': wind,
-                                             'cloud_cover': clouds,
-                                             'uv': uv})
-            # self.write_to_sql(times, temps, precips, rain_prob, humidities, wind, clouds, uv)
+            uv = [val for (val, boolean) in zip(uv, time_check) if boolean]
+            # self.new_weather = pd.DataFrame({'time': times, 
+            #                                  'temp': temps,
+            #                                  'current_rain': precips,
+            #                                  'rain_prob': rain_prob,
+            #                                  'humidity': humidities,
+            #                                  'wind': wind,
+            #                                  'cloud_cover': clouds,
+            #                                  'uv': uv})
+            self.write_to_sql(times, temps, precips, rain_prob, humidities, wind, clouds, uv)
             
         except:
             pass
