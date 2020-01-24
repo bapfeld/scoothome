@@ -88,21 +88,21 @@ def results():
         t = request.form.get('time')
         t = dateparser.parse(t)
         if t < datetime.datetime.now():
-            reload_after_error("Whoops, looks like you chose a time that's already happened!")
+            return reload_after_error("Whoops, looks like you chose a time that's already happened!")
         if t > datetime.datetime.now() + datetime.timedelta(hours=48):
-            reload_after_error("Whoops, looks like you chose a time that's too far in the future.")
+            return reload_after_error("Whoops, looks like you chose a time that's too far in the future.")
         location = geocode_location(input_location)
         if location[0] is None:
-            reload_after_error("Whoops, looks like we can't find that location on the map. Please try again.")
+            return reload_after_error("Whoops, looks like we can't find that location on the map. Please try again.")
         area = loc_to_area(location)
+        if area is None:
+            return reload_after_error("Whoops, looks like that location isn't in Austin! Please try again.")
         s_path = '/home/bapfeld/scoothome/models/' + area + '.pkl'
         if os.path.exists(s_path):
             pred = pd.read_pickle(s_path)
         else:
             model_pred = make_prediction(area, pg, ds_key, location[0], location[1], s_path)
             pred = model_pred.fcst
-        if area is None:
-            reload_after_error("Whoops, looks like that location isn't in Austin! Please try again.")
 
         rounded_t = datetime.datetime(t.year, t.month, t.day, round(float(t.hour)))
 

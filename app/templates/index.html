@@ -21,6 +21,9 @@
                 <p class="lead">You can easily see what scooters and bikes are in your area now. But will there be one for you later when you want to return home? Scoot on Home helps you estimate the likelihood that you'll be able to make a round trip using shared micromobility in Austin.</p>
             </header>
             <!-- Page Features -->
+            {% if error %}
+            <div class="p-3 mb-2 bg-danger text-white">{{error}}</div>
+            {% endif %}
             <form action="{{ url_for('results') }}" method="POST" role="form">
                 <div class="text-left form-group">
                     <label class="h5" for="destination">Where will you need a scooter?<br/><br />
