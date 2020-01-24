@@ -1,6 +1,6 @@
 import pandas as pd
 import configparser, argparse
-import os
+import os, datetime
 import psycopg2
 from fbprophet import Prophet
 from darksky.api import DarkSky
