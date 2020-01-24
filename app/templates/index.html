@@ -23,17 +23,17 @@
             <!-- Page Features -->
             <form action="{{ url_for('results') }}" method="POST" role="form">
                 <div class="text-left form-group">
-                    <label class="h5" for="statement1">Where will you need a scooter?<br/><br />
+                    <label class="h5" for="destination">Where will you need a scooter?<br/><br />
                         <span class="lead">Example:</span>
                         <input class="form-control" type="text" placeholder="4729 Burnet Rd., Austin, TX" readonly></label><br/>
-                        <textarea rows="2" class="form-control" name="statement1" id="statement1"></textarea></div>
+                        <textarea rows="2" class="form-control" name="destination" id="destination"></textarea></div>
                 <hr class="my-4">
 
                 <div class="text-left form-group">
-                    <label class="h5" for="statement2">When will you need a scooter? You can ask for any time in the next 48 hours.<br/>
+                    <label class="h5" for="time">When will you need a scooter? You can ask for any time in the next 48 hours.<br/>
                         <span class="lead">Example:</span>
                         <input class="form-control" type="text" placeholder="Jan 24, 10:45PM" readonly></label><br/>
-                        <textarea rows="1" class="form-control" name="statement2" id="statement2"></textarea></div>
+                        <textarea rows="1" class="form-control" name="time" id="time"></textarea></div>
                 <hr class="my-4">
 
                 <button type="submit" class="mt-3 mb-1 btn btn-success">Estimate my options!</button>
