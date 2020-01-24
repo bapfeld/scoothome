@@ -10,3 +10,4 @@ data/sample_full_list.csv
 data/jan_19_ts.csv
 data/full_ts.csv
 *.pyc
+models/*
