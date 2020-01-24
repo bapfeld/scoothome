@@ -12,7 +12,7 @@ import psycopg2
 from fbprophet import Prophet
 from darksky.api import DarkSky
 from darksky.types import languages, units, weather
-
+import dateparser
 
 
 app = Flask(__name__)
@@ -83,16 +83,21 @@ def index():
 def results():
     if request.method == 'POST':
         input_location = request.form.get('destination')
-        time = request.form.get('time')
+        t = request.form.get('time')
+        t = dateparser.parse(t)
+        if t < datetime.datetime.now():
+            reload_after_error("Whoops, looks like you chose a time that's already happened!")
+        if t > datetime.datetime.now() + datetime.timedelta(hours=48):
+            reload_after_error("Whoops, looks like you chose a time that's too far in the future.")
         location = geocode_location(input_location)
         if location[0] is None:
-            reload_after_error("Whoops, looks like we can't find that location on the map. Pleast try again.")
+            reload_after_error("Whoops, looks like we can't find that location on the map. Please try again.")
         area = loc_to_area(location)
         pred = make_prediction(area, pg, ds_key, location[0], location[1])
         if area is None:
             reload_after_error("Whoops, looks like that location isn't in Austin! Please try again.")
 
-    return render_template('results.html', lat=lat, lon=lon, time=time)
+    return render_template('results.html', lat=lat, lon=lon, time=t)
 
 if __name__ == "__main__":
     args = initialize_params()

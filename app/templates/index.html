@@ -5,16 +5,9 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-        <!--  jQuery -->
-        <script type="text/javascript" src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
-
-
         <!-- Bootstrap CSS -->
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
 
-        <!-- Bootstrap Date-Picker Plugin -->
-        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.4.1/js/bootstrap-datepicker.min.js"></script>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.4.1/css/bootstrap-datepicker3.css"/>
         
         <!-- <link href="../static/cover.css" rel="stylesheet"> -->
         <title>Scoot on Home!</title>
@@ -30,30 +23,21 @@
             <!-- Page Features -->
             <form action="{{ url_for('results') }}" method="POST" role="form">
                 <div class="text-left form-group">
-                    <label class="h5" for="statement1">Where will you need a scooter or bike?</em></span><br/><br />
+                    <label class="h5" for="statement1">Where will you need a scooter?<br/><br />
                         <span class="lead">Example:</span>
                         <input class="form-control" type="text" placeholder="4729 Burnet Rd., Austin, TX" readonly></label><br/>
-                        <textarea rows="2" class="form-control" name="destination" id="destination"></textarea></div>
+                        <textarea rows="2" class="form-control" name="statement1" id="statement1"></textarea></div>
                 <hr class="my-4">
 
-                <div class="form-group">
-                    <div class='input-group date' id='datetimepicker5'>
-                        <input type='text' class="form-control" />
-                        <span class="input-group-addon">
-                            <span class="glyphicon glyphicon-calendar"></span>
-                        </span>
-                    </div>
-                </div>
-                <script type="text/javascript">
-                 $(function () {
-                     $('#datetimepicker5').datetimepicker({
-                         defaultDate: {{now}},
-                         minDate: {{now}},
-                     });
-                 });
-                </script>
+                <div class="text-left form-group">
+                    <label class="h5" for="statement2">When will you need a scooter? You can ask for any time in the next 48 hours.<br/>
+                        <span class="lead">Example:</span>
+                        <input class="form-control" type="text" placeholder="Jan 24, 10:45PM" readonly></label><br/>
+                        <textarea rows="1" class="form-control" name="statement2" id="statement2"></textarea></div>
                 <hr class="my-4">
-                <button type="submit" class="mt-3 mb-1 btn btn-success">Submit</button></form>
+
+                <button type="submit" class="mt-3 mb-1 btn btn-success">Estimate my options!</button>
+            </form>
         </div>
     </body>
 </html>
