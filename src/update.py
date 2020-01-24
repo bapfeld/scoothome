@@ -20,7 +20,8 @@ class historicalWeather():
     """Class to get historical weather data and write to postgres database
 
     """
-    def __init__(self, pg, ds_key):
+    def __init__(self, pg, ds_key, max_date=None):
+        self.max_date = max_weather_date
         self.pg_username = pg['username']
         self.pg_password = pg['password']
         self.pg_host = pg['host']
@@ -32,7 +33,7 @@ class historicalWeather():
         self.ds_key = ds_key
         self.init_ds_obj()
 
-    def write_to_sql(self, max_date=None):
+    def write_to_sql(self):
         if max_date is not None:
             self.new_weather = self.new_weather[self.new_weather['time'] > max_date]
         with psycopg2.connect(dbname=self.pg_db,
@@ -113,7 +114,7 @@ class updater():
     def get_new_weather_history(self):
         days = [x for x in daterange(self.max_weather_date, datetime.datetime.today(), inclusive=False)]
         # create an object and make requests
-        self.w = historicalWeather(pg, ds_key)
+        self.w = historicalWeather(pg, ds_key, self.max_weather_date)
         for day in days:
             self.w.fetch_day_history(day)
             time.sleep(1)
