@@ -72,6 +72,7 @@ def make_prediction(area, pg, ds_key, lat, lon, model_save_path):
     m = tsModel(pg, ds_key)
     m.run(area, lat, lon, varlist=[])
     m.save_results(model_save_path)
+    return m
     # plot_res = m.fig
 
 # Define routes
@@ -94,21 +95,21 @@ def results():
         if location[0] is None:
             reload_after_error("Whoops, looks like we can't find that location on the map. Please try again.")
         area = loc_to_area(location)
-        s_path = '/home/bapfeld/scoothome/models' + area + '.pkl'
+        s_path = '/home/bapfeld/scoothome/models/' + area + '.pkl'
         if os.path.exists(s_path):
             pred = pd.read_pickle(s_path)
         else:
-            pred = make_prediction(area, pg, ds_key, location[0], location[1], s_path)
+            model_pred = make_prediction(area, pg, ds_key, location[0], location[1], s_path)
+            pred = model_pred.fcst
         if area is None:
             reload_after_error("Whoops, looks like that location isn't in Austin! Please try again.")
 
-        rounded_t = datetime.datetime(t.year, t.month, t.day, t.hour,
-                            15*round((float(t.minute) + float(t.second) / 60) // 15))
+        rounded_t = datetime.datetime(t.year, t.month, t.day, round(float(t.hour)))
 
-        time_row = pred.index[pred['time'] == rounded_t].tolist()[0]
+        time_row = pred.index[pred['ds'] == rounded_t].tolist()[0]
         estimates = []
-        for i in range(time_row - 4, time_row + 4):
-            estimates.append({'time': pred.iloc[i, 0], 'N': pred.iloc[i, 1]})
+        for i in range(time_row - 4, min([time_row + 4, pred.shape[0]])):
+            estimates.append({'time': pred.iloc[i, 0], 'N': max([pred.iloc[i, 1], 0])})
 
     return render_template('results.html', location=input_location, time=t, estimates=estimates)
 
