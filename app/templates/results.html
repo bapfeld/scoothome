@@ -22,7 +22,7 @@
                 <!-- Left column with table -->
                 <div class="col">
                     <table class="table table-hover">
-                        <tr><th>Time</th><th>Scooters in the Area</th></tr>
+                        <tr><th>Time</th><th>Estimated Scooters in the Area</th></tr>
                         {% for time in estimates %}
                         <tr><td>{{ time['time'] }}</td><td>{{ time['N']}}</td></tr>
                         {% endfor %}
@@ -34,7 +34,7 @@
                 <div class="col">
                     <h3> Where you're heading </h3>
                     <div class="embed-responsive embed-responsive-1by1">
-                        <iframe frameborder="10" scrolling="no" marginheight="10" marginwidth="10"                              src="https://www.openstreetmap.org/export/embed.html?bbox=-2.493209838867188%2C53.50540525319918%2C-2.246360778808594%2C53.61980121473449&amp;layer=mapnik&amp;marker=53.56274386269267%2C-2.3699569702148438" style="border: 1px solid black"></iframe>
+                        <iframe frameborder="10" scrolling="no" marginheight="10" marginwidth="10"                              src="{{ map_url }}" style="border: 1px solid black"></iframe>
                     </div>
                 </div>
                         <!-- Bootstrap core JavaScript

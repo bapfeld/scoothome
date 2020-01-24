@@ -111,7 +111,19 @@ def results():
         for i in range(time_row - 4, min([time_row + 4, pred.shape[0]])):
             estimates.append({'time': pred.iloc[i, 0], 'N': max([pred.iloc[i, 1], 0])})
 
-    return render_template('results.html', location=input_location, time=t, estimates=estimates)
+        lat = location[0]
+        lon = location[1]
+        bbox_1 = lon - 0.0036
+        bbox_2 = lat - 0.0036
+        bbox_3 = lon + 0.0036
+        bbox_4 = lat + 0.0036
+        map_url = f"https://www.openstreetmap.org/export/embed.html?bbox={bbox_1}%2C{bbox_2}%2C{bbox_3}%2C{bbox_4}&amp;layer=mapnik&amp;marker={lat}%2C{lon}"
+
+    return render_template('results.html',
+                           location=input_location,
+                           time=t,
+                           estimates=estimates,
+                           map_url=map_url)
 
 if __name__ == "__main__":
     args = initialize_params()
