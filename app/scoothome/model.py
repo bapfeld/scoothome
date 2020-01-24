@@ -44,10 +44,35 @@ class tsModel():
         self.dat.drop(columns=['area', 'district', 'tract'], inplace=True)
         self.dat.rename(columns={'time': 'ds', 'n': 'y'}, inplace=True)
 
+    def make_special_events():
+        sxsw = pd.DataFrame({
+            'holiday': 'sxsw',
+            'ds': pd.to_datetime(['2018-03-09', '2018-03-10', '2018-03-11',
+                                  '2018-03-12', '2018-03-13', '2018-03-14',
+                                  '2018-03-15', '2018-03-16', '2018-03-17',
+                                  '2018-03-18', '2018-03-19', '2019-03-08',
+                                  '2019-03-09', '2019-03-10', '2019-03-11',
+                                  '2019-03-12', '2019-03-13', '2019-03-14',
+                                  '2019-03-15', '2019-03-16', '2019-03-17',
+                                  '2020-03-13', '2020-03-14', '2020-03-15',
+                                  '2020-03-16', '2020-03-17', '2020-03-18',
+                                  '2020-03-19', '2020-03-20', '2020-03-21',
+                                  '2020-03-22'])})
+        acl = pd.DataFrame({
+            'holiday': 'sxsw',
+            'ds': pd.to_datetime(['2018-10-05', '2018-10-06', '2018-10-07',
+                                  '2018-10-12', '2018-10-13', '2018-10-14',
+                                  '2019-10-04', '2019-10-05', '2019-10-06',
+                                  '2019-10-11', '2019-10-12', '2019-10-13', 
+                                  '2020-10-02', '2020-10-03', '2020-10-04',
+                                  '2020-10-09', '2020-10-10', '2020-10-11'])})
+        self.holidays = pd.concat((swsx, acl))
+        
+
     def build_model(self, scale=0.05, varlist=['temp', 'current_rain',
                                                'rain_prob', 'humidity',
                                                'wind', 'cloud_cover', 'uv']):
-        self.model = Prophet(changepoint_prior_scale=scale)
+        self.model = Prophet(changepoint_prior_scale=scale, holidays=self.holidays)
         if len(varlist) > 0:
             for v in varlist:
                 self.model.add_regressor(v)
