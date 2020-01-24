@@ -94,15 +94,20 @@ class tsModel():
         self.fig = self.model.plot(self.fcst)
         #fig.savefig(outfile)
 
-    def run(self, area_key, lat, lon):
+    def run(self, area_key, lat, lon, varlist=['temp', 'current_rain',
+                                               'rain_prob', 'humidity',
+                                               'wind', 'cloud_cover', 'uv']):
         self.get_area_series(area_key)
         self.get_weather_data()
         self.prep_model_data()
-        self.build_model()
+        self.build_model(varlist=varlist)
         self.train_model()
         self.build_prediction_df(lat, lon)
         self.predict()
-        self.plot_results()
+        # self.plot_results()
+
+    def save_results(self, save_path):
+        self.fcst.to_pickle(save_path)
 
 def main(pg, ds_key):
     m = tsModel(pg, ds_key)

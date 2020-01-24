@@ -68,10 +68,11 @@ def reload_after_error(error):
     now = calc_nowish()
     return render_template('index.html', now=now, error=error)
 
-def make_prediction(area, pg, ds_key, lat, lon):
+def make_prediction(area, pg, ds_key, lat, lon, model_save_path):
     m = tsModel(pg, ds_key)
-    m.run(area, lat, lon)
-    plot_res = m.fig
+    m.run(area, lat, lon, varlist=[])
+    m.save_results(model_save_path)
+    # plot_res = m.fig
 
 # Define routes
 @app.route('/', methods=['GET'])
@@ -93,11 +94,23 @@ def results():
         if location[0] is None:
             reload_after_error("Whoops, looks like we can't find that location on the map. Please try again.")
         area = loc_to_area(location)
-        pred = make_prediction(area, pg, ds_key, location[0], location[1])
+        s_path = '/home/bapfeld/scoothome/models' + area + '.pkl'
+        if os.path.exists(s_path):
+            pred = pd.read_pickle(s_path)
+        else:
+            pred = make_prediction(area, pg, ds_key, location[0], location[1], s_path)
         if area is None:
             reload_after_error("Whoops, looks like that location isn't in Austin! Please try again.")
 
-    return render_template('results.html', lat=lat, lon=lon, time=t)
+        rounded_t = datetime.datetime(t.year, t.month, t.day, t.hour,
+                            15*round((float(t.minute) + float(t.second) / 60) // 15))
+
+        time_row = pred.index[pred['time'] == rounded_t].tolist()[0]
+        estimates = []
+        for i in range(time_row - 4, time_row + 4):
+            estimates.append({'time': pred.iloc[i, 0], 'N': pred.iloc[i, 1]})
+
+    return render_template('results.html', location=input_location, time=t, estimates=estimates)
 
 if __name__ == "__main__":
     args = initialize_params()
