@@ -55,9 +55,9 @@ class tsModel():
     def train_model(self):
         self.model.fit(self.dat)
 
-    def build_prediction_df(self, lat, lon, periods=48):
+    def build_prediction_df(self, lat, lon, periods=192):
         self.get_weather_pred(lat, lon)
-        future = self.model.make_future_dataframe(periods=periods, freq='H')
+        future = self.model.make_future_dataframe(periods=periods, freq='15T')
         self.future = pd.merge(future, self.weather, how='left', left_on='ds', right_on='time')
         self.future.update(self.future_weather)
 
@@ -92,17 +92,22 @@ class tsModel():
 
     def plot_results(self):
         self.fig = self.model.plot(self.fcst)
-        #fig.savefig(outfile)
+        #fig.savefig(outflow)
 
-    def run(self, area_key, lat, lon, varlist=['temp', 'current_rain',
-                                               'rain_prob', 'humidity',
-                                               'wind', 'cloud_cover', 'uv']):
+    def run(self,
+            area_key,
+            lat,
+            lon,
+            varlist=['temp', 'current_rain', 'rain_prob', 'humidity', 'wind', 'cloud_cover', 'uv']):
         self.get_area_series(area_key)
         self.get_weather_data()
         self.prep_model_data()
         self.build_model(varlist=varlist)
         self.train_model()
-        self.build_prediction_df(lat, lon)
+        t_diff = datetime.datetime.now() + datetime.timedelta(days=2) - self.area_series['time'].max()
+        hours_diff = (t_diff.days * 24) + (t_diff.seconds / 3600)
+        periods = max([192, int(hours_diff) * 4])
+        self.build_prediction_df(lat, lon, periods)
         self.predict()
         # self.plot_results()
 
