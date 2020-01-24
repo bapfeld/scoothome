@@ -5,14 +5,89 @@ from darksky.types import languages, units, weather
 import configparser, argparse
 import os, time, datetime
 import psycopg2
-from get_past_weather import historicalWeather, daterange
+from sqlalchemy import create_engine
+from darksky.api import DarkSky
+from darksky.types import languages, units, weather
 
 def import_secrets(ini_path):
     config = configparser.ConfigParser()
     config.read(ini_path)
     return (config['socrata']['app_token'],
             config['postgres'],
-            config['openweather']['key'])
+            config['darksky']['key'])
+
+class historicalWeather():
+    """Class to get historical weather data and write to postgres database
+
+    """
+    def __init__(self, pg, ds_key):
+        self.pg_username = pg['username']
+        self.pg_password = pg['password']
+        self.pg_host = pg['host']
+        self.pg_db = pg['database']
+        self.pg_port = pg['port']
+        self.ds_key = ds_key
+        self.atx_lat = 30.267151
+        self.atx_lon = -97.743057
+        self.ds_key = ds_key
+        self.init_ds_obj()
+
+    def write_to_sql(self, max_date=None):
+        if max_date is not None:
+            self.new_weather = self.new_weather[self.new_weather['time'] > max_date]
+        with psycopg2.connect(dbname=self.pg_db,
+                              user=self.pg_username,
+                              password=self.pg_password,
+                              host=self.pg_host,
+                              port=self.pg_port) as conn:
+            with conn.cursor() as curs:
+                pg_query = """INSERT INTO weather 
+                              VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                              ON CONFLICT (time) DO NOTHING"""
+                for idx, r in self.new_weather.iterrows():
+                    curs.execute(pg_query, row.values)
+                conn.commit()
+
+    def init_ds_obj(self):
+        self.ds = DarkSky(self.ds_key)
+        
+    def fetch_day_history(self, day):
+        try:
+            hist = self.ds.get_time_machine_forecast(self.atx_lat, self.atx_lon,
+                                                     extend=False,
+                                                     lang=languages.ENGLISH, units=units.AUTO,
+                                                     exclude=[weather.MINUTELY, weather.ALERTS],
+                                                     timezone='UTC',
+                                                     time=day)
+            times = [x.time for x in hist.hourly.data]
+            temps = [x.temperature for x in hist.hourly.data]
+            precips = [x.precip_intensity for x in hist.hourly.data]
+            rain_prob = [x.precip_probability for x in hist.hourly.data]
+            humidities = [x.humidity for x in hist.hourly.data]
+            wind = [x.wind_speed for x in hist.hourly.data]
+            clouds = [x.cloud_cover for x in hist.hourly.data]
+            uv = [x.uv_index for x in hist.hourly.data]
+            self.new_weather = pd.DataFrame({'time': times, 
+                                             'temp': temps,
+                                             'current_rain': precips,
+                                             'rain_prob': rain_prob,
+                                             'humidity': humidities,
+                                             'wind': wind,
+                                             'cloud_cover': clouds,
+                                             'uv': uv})
+            # self.write_to_sql(times, temps, precips, rain_prob, humidities, wind, clouds, uv)
+            
+        except:
+            pass
+
+
+def daterange(start_date, end_date, inclusive=True):
+    if inclusive:
+        for n in range(int((end_date - start_date).days) + 1):
+            yield start_date + datetime.timedelta(n)
+    else:
+        for n in range(int((end_date - start_date).days)):
+            yield start_date + datetime.timedelta(n)
 
 class updater():
     """Class to update the underlying databases. 
@@ -20,7 +95,8 @@ class updater():
        Will pull all new data in case script needs to be run after a gap of more than one day.
 
     """
-    def __init__(self, pg, ds_key):
+    def __init__(self, app_token, pg, ds_key):
+        self.app_token = app_token
         self.conn = psycopg2.connect(database=pg['database'],
                                      user=pg['username'],
                                      password=pg['password'],
@@ -28,14 +104,14 @@ class updater():
                                      host=pg['host'])
         self.pg_username = pg['username']
         self.pg_password = pg['password']
-        self.pg_host = pg['localhost']
+        self.pg_host = pg['host']
         self.pg_db = pg['database']
         self.pg_port = pg['port']
         self.ds_key = ds_key
         self.engine = create_engine(f'postgresql://{self.pg_username}:{self.pg_password}@{self.pg_host}:{self.pg_port}/{self.pg_db}')
 
     def get_new_weather_history(self):
-        days = [x for x in daterange(self.max_weather_date, datetime.date.today(), inclusive=False)]
+        days = [x for x in daterange(self.max_weather_date, datetime.datetime.today(), inclusive=False)]
         # create an object and make requests
         self.w = historicalWeather(pg, ds_key)
         for day in days:
@@ -45,7 +121,7 @@ class updater():
     def get_max_dates(self):
         """Get the maximum dates for both ride and weather tables"""
         self.max_ride_date = pd.read_sql_query('SELECT MAX(start_time) from rides', self.conn).iloc[0, 0]
-        self.max_weather_date = pd.read_sql_query('SELECT MAX(start_time) from weather', self.conn).iloc[0, 0]
+        self.max_weather_date = pd.read_sql_query('SELECT MAX(time) from weather', self.conn).iloc[0, 0]
 
     def basic_clean(self, df):
         # Drop bad observations
@@ -54,8 +130,8 @@ class updater():
         df = df[df['census_geoid_end'] != 'OUT_OF_BOUNDS']
 
         # Convert time objects
-        df['start_time'] = pd.to_datetime(df['Start Time'], format="%m/%d/%YT%I:%M:%S")
-        df['end_time'] = pd.to_datetime(df['End Time'], format="%m/%d/%YT%I:%M:%S")
+        df['start_time'] = pd.to_datetime(df['start_time'])
+        df['end_time'] = pd.to_datetime(df['end_time'])
 
         # Convert some data typees
         df['council_district_start'] = df['council_district_start'].astype(float).astype(int)
@@ -76,7 +152,7 @@ class updater():
         return df
 
     def get_new_ride_data(self, identifier="7d8e-dm7r"):
-        client = Socrata("data.austintexas.gov", app_token)
+        client = Socrata("data.austintexas.gov", self.app_token)
         t = self.max_ride_date.strftime("%Y-%m-%dT%H:%M:%S")
         query = f'start_time > "{t}"'
         try:
@@ -87,40 +163,26 @@ class updater():
             pass
 
     def write_new_rides(self):
-        self.new_rides.to_sql(rides, self.engine, if_exists='append', index=False)
-            
+        self.new_rides.to_sql('rides', self.engine, if_exists='append', index=False)
 
-def write_to_db(database, user, password, port):
-    pass
-
-def fetch_new_data(client, resource, start_date):
-    results = client.get(resource, where=f'Start Time > {latest_start_time}')
-    # results_df = pd.DataFrame.from_records(results)
-    return results
+def initialize_params():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--ini_path',
+        help="Path to the .ini file containing the app token",
+        required=False,
+    )
+    return parser.parse_args()
     
-# '/home/bapfeld/scoothome/socrata/socrata.ini'
-# micromobility data: "7d8e-dm7r"
-
 def main():
-    def initialize_params():
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            '--ini_path',
-            help="Path to the .ini file containing the app token",
-            required=False,
-        )
-        return parser.parse_args()
     args = initialize_params()
-    app_token, pg, ow_key = import_secrets(os.path.expanduser(args.ini_path))
+    app_token, pg, ds_key = import_secrets(os.path.expanduser(args.ini_path))
 
-    # Establish a client to query the database
-    
-
-    # Get latest dates for the different databases
-
-    # Fetch new data
-
-    # Write new data back to the database
+    upd = updater(app_token, pg, ds_key)
+    upd.get_max_dates()
+    upd.get_new_ride_data()
+    upd.write_new_rides()
+    upd.get_new_weather_history()
 
 
 if __name__ == "__main__":
