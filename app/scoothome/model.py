@@ -72,6 +72,7 @@ class tsModel():
     def build_model(self, scale=0.05, varlist=['temp', 'current_rain',
                                                'rain_prob', 'humidity',
                                                'wind', 'cloud_cover', 'uv']):
+        self.make_special_events()
         self.model = Prophet(changepoint_prior_scale=scale, holidays=self.holidays)
         if len(varlist) > 0:
             for v in varlist:
