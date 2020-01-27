@@ -12,6 +12,12 @@ import os, datetime
 import psycopg2
 
 # need to get the data in
+def import_secrets(ini_path):
+    config = configparser.ConfigParser()
+    config.read(ini_path)
+    return (config['postgres'], config['darksky']['key'])
+
+pg, ds_key = import_secrets('/home/bapfeld/scoothome/setup.ini')
 conn = psycopg2.connect(database=pg['database'],
                         user=pg['username'],
                         password=pg['password'],
@@ -26,8 +32,17 @@ dat = dat.groupby('time').sum().resample('H').sum()
 
 # merge with weather
 dat = pd.merge(dat, weather, how='left', on='time')
+dat.dropna(inplace=True)
 
 # Create test and train sets
+train = dat[dat['time'] < pd.to_datetime('2019/12/01')].copy()
+test = dat[dat['time'] > pd.to_datetime('2019/12/01')].copy()
+
+train['heavy_rain'] = pd.cut(train['current_rain'])
+
+
+X = train.drop(columns=['time', 'district', 'tract', 'n'])
+y = train['n']
 
 # Select relevant features
 
@@ -61,3 +76,25 @@ lin_pred = lin.predict(X)
 lin_mse = mean_squared_error(y, lin_pred)
 lin_rmse = np.sqrt(lin_mse)
 lin_rmse
+
+
+# feature selection?
+from sklearn.feature_selection import SelectKBest, chi2
+
+best_features = SelectKBest(score_func=chi2, k=5)
+fit = best_features.fit(X, y)
+df_scores = pd.DataFrame(fit.scores_)
+df_columns = pd.DataFrame(X.columns)
+feature_scores = pd.concat([df_columns, df_scores], axis=1)
+feature_scores.columns = ['Specs', 'Score']
+print(feature_scores.nlargest(5, 'Score'))
+
+# linear regression using only the relevant variables
+X_small = train[['temp', 'uv', 'wind']]
+
+lin_2 = LinearRegression()
+lin_2.fit(X_small, y)
+lin_2_pred = lin_2.predict(X_small)
+lin_2_mse = mean_squared_error(y, lin_2_pred)
+lin_2_rmse = np.sqrt(lin_2_mse)
+lin_2_rmse
