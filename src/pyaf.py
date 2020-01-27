@@ -3,26 +3,34 @@ import re
 import psycopg2
 import pyaf.HierarchicalForecastEngine as hautof
 
-with open('/home/bapfeld/scoothome/data/area_id_list.txt', 'r') as f:
-    area_list = f.readlines()
-area_list = [x.strip() for x in area_list]
+# with open('/home/bapfeld/scoothome/data/area_id_list.txt', 'r') as f:
+#     area_list = f.readlines()
+# area_list = [x.strip() for x in area_list]
 
-pg, ds_key = import_secrets('/home/bapfeld/scoothome/setup.ini')
+# pg, ds_key = import_secrets('/home/bapfeld/scoothome/setup.ini')
 
 # need to get the data in
-conn = psycopg2.connect(database=pg['database'],
-                        user=pg['username'],
-                        password=pg['password'],
-                        port=pg['port'],
-                        host=pg['host'])
-dat = pd.read_sql_query('SELECT * FROM ts', conn)
+# conn = psycopg2.connect(database=pg['database'],
+#                         user=pg['username'],
+#                         password=pg['password'],
+#                         port=pg['port'],
+#                         host=pg['host'])
+# dat = pd.read_sql_query('SELECT * FROM ts', conn)
 
-with open('/home/bapfeld/scoothome/data/area_id_list.txt', 'r') as f:
-    area_list = f.readlines()
-area_list = [x.strip() for x in area_list]
+# with open('/home/bapfeld/scoothome/data/area_id_list.txt', 'r') as f:
+#     area_list = f.readlines()
+# area_list = [x.strip() for x in area_list]
 
-tracts = pd.unique(dat['tract'])
-districts = pd.unique(dat['district'])
+# tracts = pd.unique(dat['tract'])
+# districts = pd.unique(dat['district'])
+dat = pd.read_csv("/home/bapfeld/scoothome/data/jan_19_ts.csv")
+
+dat['time'] = pd.to_datetime(dat['time'])
+
+areas = pd.unique(dat['area'])
+districts = [re.sub(r'-.*$', '', x) for x in areas]
+tracts = [re.sub(r'^.*-', '', x) for x in areas]
+area_list = ['austin'] * len(areas)
 
 lHierarchy = {'Levels': ['area', 'tract', 'district', 'austin'],
               'Data': pd.DataFrame({'area': areas,
@@ -38,7 +46,7 @@ dat.reset_index(inplace=True)
 lEngine = hautof.cHierarchicalForecastEngine()
 
 lSignalHierarchy = lEngine.plot_Hierarchy(dat, "time", "n", 1, lHierarchy, None)
-lSignalHierarchy.mStructure
+# lSignalHierarchy.mStructure
 
 # drop final day for predictions
 train_df = dat[dat['time'] < pd.to_datetime('2019-01-30')].copy().pivot(index='time', columns='area', values='n').reset_index()
