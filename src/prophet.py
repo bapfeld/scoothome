@@ -39,6 +39,8 @@ for area in area_list:
             pdf.savefig()
             fig2 = m.model.plot_components(m.fcst)
             pdf.savefig()
+            fig.close()
+            fig2.close()
     
 
 # with PdfPages('/home/bapfeld/scoothome/figures/estimation_by_area_jan.pdf') as pdf:
