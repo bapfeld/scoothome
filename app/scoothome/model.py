@@ -44,7 +44,7 @@ class tsModel():
         self.dat.drop(columns=['area', 'district', 'tract'], inplace=True)
         self.dat.rename(columns={'time': 'ds', 'n': 'y'}, inplace=True)
 
-    def make_special_events():
+    def make_special_events(self):
         sxsw = pd.DataFrame({
             'holiday': 'sxsw',
             'ds': pd.to_datetime(['2018-03-09', '2018-03-10', '2018-03-11',
@@ -66,7 +66,7 @@ class tsModel():
                                   '2019-10-11', '2019-10-12', '2019-10-13', 
                                   '2020-10-02', '2020-10-03', '2020-10-04',
                                   '2020-10-09', '2020-10-10', '2020-10-11'])})
-        self.holidays = pd.concat((swsx, acl))
+        self.holidays = pd.concat((sxsw, acl))
         
 
     def build_model(self, scale=0.05, varlist=['temp', 'current_rain',
@@ -81,8 +81,9 @@ class tsModel():
     def train_model(self):
         self.model.fit(self.dat)
 
-    def build_prediction_df(self, lat, lon, periods=192):
-        self.get_weather_pred(lat, lon)
+    def build_prediction_df(self, lat, lon, periods=192, get_forecast=True):
+        if get_forecast:
+            self.get_weather_pred(lat, lon)
         future = self.model.make_future_dataframe(periods=periods, freq='15T')
         self.future = pd.merge(future, self.weather, how='left', left_on='ds', right_on='time')
         self.future.update(self.future_weather)
