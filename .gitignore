@@ -11,3 +11,4 @@ data/jan_19_ts.csv
 data/full_ts.csv
 *.pyc
 models/*
+figures/ts/*
