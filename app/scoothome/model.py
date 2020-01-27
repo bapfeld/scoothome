@@ -69,9 +69,7 @@ class tsModel():
         self.holidays = pd.concat((sxsw, acl))
         
 
-    def build_model(self, scale=0.05, varlist=['temp', 'current_rain',
-                                               'rain_prob', 'humidity',
-                                               'wind', 'cloud_cover', 'uv']):
+    def build_model(self, scale=0.05, varlist=['temp', 'wind', 'uv']):
         self.make_special_events()
         self.model = Prophet(changepoint_prior_scale=scale, holidays=self.holidays)
         if len(varlist) > 0:
@@ -125,7 +123,7 @@ class tsModel():
             area_key,
             lat,
             lon,
-            varlist=['temp', 'current_rain', 'rain_prob', 'humidity', 'wind', 'cloud_cover', 'uv']):
+            varlist=['temp', 'wind', 'uv']):
         self.get_area_series(area_key)
         self.get_weather_data()
         self.prep_model_data()
