@@ -79,10 +79,13 @@ lin_rmse
 
 
 # feature selection?
-from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.feature_selection import SelectKBest, chi2, f_regression
 
-best_features = SelectKBest(score_func=chi2, k=5)
-fit = best_features.fit(X, y)
+from sklearn.preprocessing import normalize
+X_norm = normalize(X)
+
+best_features = SelectKBest(score_func=f_regression, k=5)
+fit = best_features.fit(X_norm, y)
 df_scores = pd.DataFrame(fit.scores_)
 df_columns = pd.DataFrame(X.columns)
 feature_scores = pd.concat([df_columns, df_scores], axis=1)
@@ -90,11 +93,19 @@ feature_scores.columns = ['Specs', 'Score']
 print(feature_scores.nlargest(5, 'Score'))
 
 # linear regression using only the relevant variables
-X_small = train[['temp', 'uv', 'wind']]
+# X_small = train[['temp', 'uv', 'wind']]
 
-lin_2 = LinearRegression()
-lin_2.fit(X_small, y)
-lin_2_pred = lin_2.predict(X_small)
-lin_2_mse = mean_squared_error(y, lin_2_pred)
-lin_2_rmse = np.sqrt(lin_2_mse)
-lin_2_rmse
+# lin_2 = LinearRegression()
+# lin_2.fit(X_small, y)
+# lin_2_pred = lin_2.predict(X_small)
+# lin_2_mse = mean_squared_error(y, lin_2_pred)
+# lin_2_rmse = np.sqrt(lin_2_mse)
+# lin_2_rmse
+
+
+from sklearn.ensemble import ExtraTreesRegressor
+clf = ExtraTreesRegressor(n_estimators=25)
+clf = clf.fit(X_norm, y)
+tree_res = pd.concat([pd.DataFrame(X.columns), pd.DataFrame(clf.feature_importances_)],axis=1)
+tree_res.columns = ['Feature', 'Importance']
+tree_res.sort_values(['Importance'], ascending=False)
