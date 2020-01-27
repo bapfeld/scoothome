@@ -1,23 +1,39 @@
 import pandas as pd
 import re
+import psycopg2
 import pyaf.HierarchicalForecastEngine as hautof
 
+with open('/home/bapfeld/scoothome/data/area_id_list.txt', 'r') as f:
+    area_list = f.readlines()
+area_list = [x.strip() for x in area_list]
+
+pg, ds_key = import_secrets('/home/bapfeld/scoothome/setup.ini')
+
 # need to get the data in
-dat = pd.read_csv("/home/bapfeld/scoothome/data/jan_19_ts.csv")
+conn = psycopg2.connect(database=pg['database'],
+                        user=pg['username'],
+                        password=pg['password'],
+                        port=pg['port'],
+                        host=pg['host'])
+dat = pd.read_sql_query('SELECT * FROM ts', conn)
 
-dat['time'] = pd.to_datetime(dat['time'])
+with open('/home/bapfeld/scoothome/data/area_id_list.txt', 'r') as f:
+    area_list = f.readlines()
+area_list = [x.strip() for x in area_list]
 
-areas = pd.unique(dat['area'])
-districts = [re.sub(r'-.*$', '', x) for x in areas]
-tracts = [re.sub(r'^.*-', '', x) for x in areas]
-a_list = ['austin'] * len(areas)
+tracts = pd.unique(dat['tract'])
+districts = pd.unique(dat['district'])
 
 lHierarchy = {'Levels': ['area', 'tract', 'district', 'austin'],
               'Data': pd.DataFrame({'area': areas,
                                     'tract': tracts,
                                     'district': districts,
-                                    'austin': a_list}),
+                                    'austin': area_list}),
               'Type': 'Hierarchical'}
+
+# Need to complete the time series...
+dat = dat.set_index('time').groupby(['area']).resample('15T').mean().fillna(0)
+dat.reset_index(inplace=True)
 
 lEngine = hautof.cHierarchicalForecastEngine()
 
