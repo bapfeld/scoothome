@@ -5,6 +5,7 @@ import os, datetime
 import psycopg2
 from fbprophet import Prophet
 from fbprophet.diagnostics import cross_validation, performance_metrics
+from fbprophet.plot import plot_cross_validation_metric
 from darksky.api import DarkSky
 from darksky.types import languages, units, weather
 
@@ -137,9 +138,11 @@ class tsModel():
         self.fig = self.model.plot(self.fcst)
         #fig.savefig(outflow)
 
-    def cv(self, initial, period, horizon):
+    def cv(self, initial, period, horizon, log):
         self.df_cv = cross_validation(self.model, initial=initial, period=period, horizon=horizon)
-        self.df_p = performance_metrics(df_cv)
+        if log:
+            self.df_cv = self.df_cv.apply(lambda x: np.exp(x) if x.name not in ['ds', 'cutoff'] else x)
+        self.df_p = performance_metrics(self.df_cv)
 
     def run(self,
             area_key,
