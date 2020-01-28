@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import configparser, argparse
 import os, datetime
 import psycopg2
@@ -15,7 +16,7 @@ class tsModel():
     """Class to query required underlying data, estimate a model, and forecast.
 
     """
-    def __init__(self, pg, ds_key):
+    def __init__(self, pg, ds_key, bin_window='15T'):
         self.conn = psycopg2.connect(database=pg['database'],
                                      user=pg['username'],
                                      password=pg['password'],
@@ -23,20 +24,31 @@ class tsModel():
                                      host=pg['host'])
         self.ds_key = ds_key
         self.init_ds_obj()
+        self.bin_window = bin_window
         
     def init_ds_obj(self):
         self.ds = DarkSky(self.ds_key)
         
-    def get_area_series(self, idx):
+    def get_area_series(self, idx, log_transform=False):
         q = f"SELECT * FROM ts WHERE area = '{idx}'"
         self.area_series = pd.read_sql_query(q, self.conn)
+        if self.bin_window != "15T":
+            self.area_series = self.area_series.set_index('time').resample(self.bin_window).sum()
+            self.area_series.reset_index()
+        if log_transform:
+            self.area_series['n'] = np.log(self.area_series['n'] + 1)
 
     def get_weather_data(self):
         start_time = self.area_series['time'].min()
         end_time = self.area_series['time'].max()
         q = f"SELECT * FROM weather WHERE time >= '{start_time}' AND time <= '{end_time}'"
         self.weather = pd.read_sql_query(q, self.conn)
-        self.weather = self.weather.set_index('time').resample('15T').pad()
+        if self.bin_window == '15T':
+            self.weather = self.weather.set_index('time').resample('15T').pad()
+        elif self.bin_window == '1H':
+            pass
+        else:
+            self.weather = self.weather.set_index('time').resample(self.bin_window).mean()
 
     def prep_model_data(self):
         self.dat = pd.merge(self.area_series, self.weather, how='right', on='time')
@@ -109,7 +121,12 @@ class tsModel():
                                             'wind': wind,
                                             'cloud_cover': clouds,
                                             'uv': uv})
-        self.future_weather = self.future_weather.set_index('time').resample('15T').pad()
+        if self.bin_window == '15T':
+            self.future_weather = self.future_weather.set_index('time').resample('15T').pad()
+        elif self.bin_window == '1H':
+            pass
+        else:
+            self.future_weather = self.future_weather.set_index('time').resample(self.bin_window).mean()
         self.future_weather = self.future_weather.tz_convert(None)
 
     def predict(self):
