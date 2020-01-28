@@ -86,12 +86,16 @@ class tsModel():
         self.holidays = pd.concat((sxsw, acl))
         
 
-    def build_model(self, scale=0.05, varlist=['temp', 'wind', 'cloud_cover', 'humidity']):
+    def build_model(self, scale=0.05, hourly=False, holidays_scale=10.0, varlist=['temp', 'wind', 'cloud_cover', 'humidity']):
         self.make_special_events()
-        self.model = Prophet(changepoint_prior_scale=scale, holidays=self.holidays)
+        self.model = Prophet(changepoint_prior_scale=scale,
+                             holidays=self.holidays,
+                             holidays_prior_scale=holidays_scale)
         if len(varlist) > 0:
             for v in varlist:
                 self.model.add_regressor(v)
+        if hourly:
+            self.model.add_seasonality(name='hourly', period=0.04167, fourier_order=1)
 
     def train_model(self):
         self.model.fit(self.dat)
@@ -151,11 +155,12 @@ class tsModel():
             area_key,
             lat,
             lon,
+            hourly, 
             varlist=['temp', 'wind', 'cloud_cover', 'humidity']):
         self.get_area_series(area_key)
         self.get_weather_data()
         self.prep_model_data()
-        self.build_model(varlist=varlist)
+        self.build_model(varlist=varlist, hourly=hourly)
         self.train_model()
         t_diff = datetime.datetime.now() + datetime.timedelta(days=2) - self.area_series['time'].max()
         hours_diff = (t_diff.days * 24) + (t_diff.seconds / 3600)
