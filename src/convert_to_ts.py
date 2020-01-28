@@ -158,10 +158,15 @@ class ts_maker():
 def look_back(row):
     pass
 
-def look_ahead(v_id, v_id_next):
+def look_ahead(v_id, v_id_next, area, area_next):
     if v_id == v_id_next:
         # same vehicle
-        pass
+        if area == area_next:
+            # area is the same
+            pass
+        else:
+            # area is different
+            pass
     else:
         pass
 
@@ -193,7 +198,9 @@ def main(dat_path,
 
     dat['neg_periods'] = dat.apply(lambda row: look_back(row), axis=1)
     dat['pos_periods'] = dat.apply(lambda row: look_ahead(row['vehicle_id'].values,
-                                                          row['vehicle_id_lead'].values),
+                                                          row['vehicle_id_lead'].values,
+                                                          row['area'].values,
+                                                          row['area_lead'].values),
                                    axis=1)
 
 
