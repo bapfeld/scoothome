@@ -66,19 +66,6 @@ def clean_df(df, device_type=None):
     return df
 
 
-# dat = pd.read_csv("/home/bapfeld/scoothome/data/micro.csv",
-#                   dtype={'Census Tract Start': object, 'Census Tract End': object})
-
-# dat = clean_df(dat)
-
-# # Smaller sample to make life easier:
-# test = dat[(dat.vehicle_type == "scooter") & (dat.end_time <= pd.Timestamp("20190430T235959"))]
-
-# test.reset_index(drop=True, inplace=True)
-# test.sort_values(['start_time'], inplace=True)
-# test.reset_index(drop=True, inplace=True)
-
-
 class ts_maker():
     """convert data to ts without constantly passing parameters and rewriting things
 
