@@ -1,14 +1,15 @@
 import pandas as pd
 import numpy as np
 from fbprophet import Prophet
+from fbprophet.diagnostics import cross_validation, performance_metrics
 import psycopg2
 from matplotlib.backends.backend_pdf import PdfPages
 from darksky.api import DarkSky
 from darksky.types import languages, units, weather
-import sys, re
+import sys, re, os
 sys.path.append('/home/bapfeld/scoothome')
 from app.scoothome.model import tsModel, import_secrets
-import configparser
+import configparser, argparse
 from itertools import product
 
 def initialize_params():
@@ -54,6 +55,7 @@ def modeler(pg, ds_key, area, log, bin_window, cps):
     m.build_prediction_df(lat = 30.267151, lon = -97.743057, periods=192)
     m.future.dropna(inplace=True)
     m.predict()
+    m.cv(initial='365 days', period='30 days', horizon='30 days')
     return m
     
     
@@ -79,8 +81,12 @@ def main():
             fig2 = m.model.plot_components(m.fcst)
             fig2.title(c[0] + ' ' + c[1])
             pdf.savefig()
+            fig3 = m.model.plot_cross_validation_metric(m.df_cv, metric='rmse')
+            fig3.title(c[0] + ' ' + c[1])
+            pdf.savefig()
             fig.close()
             fig2.close()
+            fig3.close()
 
 if __name__ == "__main__":
     main()
