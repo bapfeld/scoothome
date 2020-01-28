@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from fbprophet import Prophet
 from fbprophet.diagnostics import cross_validation, performance_metrics
+from fbprophet.plot import plot_cross_validation_metric
 import psycopg2
 from matplotlib.backends.backend_pdf import PdfPages
 from darksky.api import DarkSky
@@ -38,8 +39,8 @@ def initialize_params():
         #     default='15T'
         # )
         parser.add_argument(
-            '--pdf_out',
-            help="Path to where to save the pdfs from the changepoint specification",
+            '--pdf_dir',
+            help="Directory path to where to save the pdfs from the changepoint specification",
             required=True,
         )
         return parser.parse_args()
@@ -51,42 +52,36 @@ def modeler(pg, ds_key, area, log, bin_window, cps):
     m.prep_model_data()
     m.build_model(scale=cps)
     m.train_model()
-    m.get_weather()
     m.build_prediction_df(lat = 30.267151, lon = -97.743057, periods=192)
     m.future.dropna(inplace=True)
     m.predict()
-    m.cv(initial='365 days', period='30 days', horizon='30 days')
+    m.cv(initial='365 days', period='90 days', horizon='30 days', log=log)
     return m
     
     
-
 def main():
     args = initialize_params()
     pg, ds_key = import_secrets(os.path.expanduser(args.ini_path))
-    f_out = os.path.expanduser(args.pdf_out)
+    dir_out = os.path.expanduser(args.pdf_out)
     test_area = '9.0-48453001100'
     bin_sizes = ['15T', '1H', '6H', '1D']
     log_transforms = [True, False]
     opts = [bin_sizes, log_transforms]
-    with PdfPages(f_out) as pdf:
-        for c in product(*opts):
+    for c in product(*opts):
+        f_out = dir_out + '_'.join(list(map(str, c))) + '_' + str(args.changepoint_prior_scale) + '.pdf'
+        if not os.path.exists(f_out):
             m = modeler(pg, ds_key,
                         area=test_area,
                         log=c[1],
                         bin_window=c[0],
                         cps=args.changepoint_prior_scale)
-            fig = m.model.plot(m.fcst)
-            fig.title(c[0] + ' ' + c[1])
-            pdf.savefig()
-            fig2 = m.model.plot_components(m.fcst)
-            fig2.title(c[0] + ' ' + c[1])
-            pdf.savefig()
-            fig3 = m.model.plot_cross_validation_metric(m.df_cv, metric='rmse')
-            fig3.title(c[0] + ' ' + c[1])
-            pdf.savefig()
-            fig.close()
-            fig2.close()
-            fig3.close()
+            with PdfPages(f_out) as pdf:
+                fig = m.model.plot(m.fcst)
+                pdf.savefig()
+                fig2 = m.model.plot_components(m.fcst)
+                pdf.savefig()
+                fig3 = plot_cross_validation_metric(m.df_cv, metric='rmse')
+                pdf.savefig()
 
 if __name__ == "__main__":
     main()
