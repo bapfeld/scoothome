@@ -74,8 +74,10 @@ def main():
                         bin_window=c[0],
                         cps=args.changepoint_prior_scale)
             fig = m.model.plot(m.fcst)
+            fig.title(c[0] + ' ' + c[1])
             pdf.savefig()
             fig2 = m.model.plot_components(m.fcst)
+            fig2.title(c[0] + ' ' + c[1])
             pdf.savefig()
             fig.close()
             fig2.close()
