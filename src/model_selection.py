@@ -65,7 +65,7 @@ def main():
     dir_out = os.path.expanduser(args.pdf_dir)
     test_area = '9.0-48453001100'
     bin_sizes = ['15T', '1H', '6H', '1D']
-    log_transforms = [True, False]
+    log_transforms = [False]
     opts = [bin_sizes, log_transforms]
     for c in product(*opts):
         f_out = dir_out + '_'.join(list(map(str, c))) + '_' + str(args.changepoint_prior_scale) + '.pdf'
