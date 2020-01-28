@@ -8,7 +8,7 @@ sys.path.append('/home/bapfeld/scoothome')
 from app.scoothome.model import tsModel, import_secrets
 import configparser, argparse
 from pandas.plotting import autocorrelation_plot
-import statsmodel.api as sm
+import statsmodels.api as sm
 from statsmodels.graphics.api import qqplot
 from statsmodels.tsa.stattools import adfuller
 
