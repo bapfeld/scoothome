@@ -36,7 +36,7 @@ class tsModel():
         self.area_series = pd.read_sql_query(q, self.conn)
         if self.bin_window != "15T":
             self.area_series = self.area_series.set_index('time').resample(self.bin_window).sum()
-            self.area_series.reset_index()
+            self.area_series.reset_index(inplace=True)
         if log_transform:
             self.area_series['n'] = np.log(self.area_series['n'] + 1)
 
@@ -55,7 +55,10 @@ class tsModel():
     def prep_model_data(self):
         self.dat = pd.merge(self.area_series, self.weather, how='right', on='time')
         self.dat['n'].fillna(0, inplace=True)
-        self.dat.drop(columns=['area', 'district', 'tract'], inplace=True)
+        if self.bin_window != '15T':
+            self.dat.drop(columns=['district', 'tract'], inplace=True)
+        else:
+            self.dat.drop(columns=['area', 'district', 'tract'], inplace=True)
         self.dat.rename(columns={'time': 'ds', 'n': 'y'}, inplace=True)
 
     def make_special_events(self):
@@ -126,7 +129,7 @@ class tsModel():
         if self.bin_window == '15T':
             self.future_weather = self.future_weather.set_index('time').resample('15T').pad()
         elif self.bin_window == '1H':
-            pass
+            self.future_weather.set_index('time', inplace=True)
         else:
             self.future_weather = self.future_weather.set_index('time').resample(self.bin_window).mean()
         self.future_weather = self.future_weather.tz_convert(None)
