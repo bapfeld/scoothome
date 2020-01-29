@@ -9,6 +9,9 @@ CREATE TABLE ts
 
 COPY ts FROM '/home/postgres/db.csv' DELIMITER ',' CSV HEADER;
 
+ALTER TABLE ts
+ADD COLUMN in_use INT;
+
 CREATE TABLE weather
 (
   time TIMESTAMP UNIQUE,
