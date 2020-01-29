@@ -25,9 +25,9 @@ class tsFetch():
         self.idx = idx
         self.series = series
         if self.series == 'scooter':
-            q = f"SELECT n, in_use FROM ts WHERE area = '{idx}'"
+            q = f"SELECT n, in_use, area, district, tract, time FROM ts WHERE area = '{idx}'"
         else:
-            q = f"SELECT bike_n, bike_in_use FROM ts WHERE area = '{idx}'"
+            q = f"SELECT bike_n, bike_in_use, area, district, tract, time FROM ts WHERE area = '{idx}'"
         if window_start is not None:
             q = q + f" AND time >= '{window_start}' AND time <= '{window_end}'"
         with psycopg2.connect(database=self.pg_db,
@@ -52,21 +52,15 @@ m.get_area_series(test_area)
 
 dat = m.area_series.copy()
 dat.sort_values(['time'], inplace=True)
-# dat.set_index('time').resample('15T').sum().fillna(0).reset_index(inplace=True)
-dta = dat[['time', 'n']]
 
 train = dat[dat['time'] < pd.to_datetime('2019-9-13')].copy()
 train.set_index('time', inplace=True)
 test = dat[dat['time'] >= pd.to_datetime('2019-9-13')].copy()
 test.set_index('time', inplace=True)
-# dta.set_index('time', inplace=True)
-# autocorrelation_plot(dta)
-# plt.show()
-# plt.close()
 
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12,8))
-sm.graphics.tsa.plot_acf(dta.values.squeeze(), lags=300, ax=ax1)
-sm.graphics.tsa.plot_pacf(dta, lags=40, ax=ax2)
+sm.graphics.tsa.plot_acf(train['n'].values.squeeze(), lags=300, ax=ax1)
+sm.graphics.tsa.plot_pacf(train['n'], lags=40, ax=ax2)
 plt.show()
 plt.close()
 
@@ -96,19 +90,19 @@ for key, value in adf_results[4].items():
 arma_mod10 = sm.tsa.ARMA(train['n'].values, (1, 0)).fit(disp=False)
 arma_mod20 = sm.tsa.ARMA(train['n'].values, (2, 0)).fit(disp=False)
 arma_mod30 = sm.tsa.ARMA(train['n'].values, (3, 0)).fit(disp=False)
-arma_mod40 = sm.tsa.ARMA(train['n'].values, (4, 0)).fit(disp=False)
+arma_mod40 = sm.tsa.ARMA(train['n'], (4, 0)).fit(disp=False)
 arma_mod50 = sm.tsa.ARMA(train['n'].values, (5, 0)).fit(disp=False)
 arma_mod100 = sm.tsa.ARMA(train['n'].values, (10, 0)).fit(disp=False)
 # arma_mod11 = sm.tsa.ARMA(train['n'].values, (1, 1)).fit(disp=False)
 # arma_mod21 = sm.tsa.ARMA(train['n'].values, (2, 1)).fit(disp=False)
 
-print(arma_mod10.aic, arma_mod20.aic, arma_mod30.aic, arma_mod40.aic)
+print(arma_mod10.aic, arma_mod20.aic, arma_mod30.aic, arma_mod40.aic, arma_mod50.aic, arma_mod100.aic)
 
-arma_mod31 = sm.tsa.ARMA(train['n'].values, (3, 1)).fit(disp=False)
-print(arma_mod31.aic)
+# arma_mod31 = sm.tsa.ARMA(train['n'].values, (3, 1)).fit(disp=False)
+# print(arma_mod31.aic)
 
-arma_mod22 = sm.tsa.ARMA(train['n'].values, (2, 2)).fit(disp=False)
-print(arma_mod22.aic)
+# arma_mod22 = sm.tsa.ARMA(train['n'].values, (2, 2)).fit(disp=False)
+# print(arma_mod22.aic)
 
 # arma_21 appears to be best
 print(arma_mod100.params)
