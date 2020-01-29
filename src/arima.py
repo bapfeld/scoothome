@@ -4,19 +4,50 @@ import matplotlib.pyplot as plt
 from scipy import stats
 import psycopg2
 import sys, re, os
-sys.path.append('/home/bapfeld/scoothome')
-from app.scoothome.model import tsModel, import_secrets
 import configparser, argparse
 from pandas.plotting import autocorrelation_plot
 import statsmodels.api as sm
 from statsmodels.graphics.api import qqplot
 from statsmodels.tsa.stattools import adfuller
 
+class tsFetch():
+    """Simple class to fetch appropriate time series data
+
+    """
+    def __init__(self, pg):
+        self.pg_username = pg['username']
+        self.pg_password = pg['password']
+        self.pg_host = pg['host']
+        self.pg_db = pg['database']
+        self.pg_port = pg['port']
+
+    def get_area_series(self, idx, series='scooter', window_start=None, window_end=None):
+        self.idx = idx
+        self.series = series
+        if self.series == 'scooter':
+            q = f"SELECT n, in_use FROM ts WHERE area = '{idx}'"
+        else:
+            q = f"SELECT bike_n, bike_in_use FROM ts WHERE area = '{idx}'"
+        if window_start is not None:
+            q = q + f" AND time >= '{window_start}' AND time <= '{window_end}'"
+        with psycopg2.connect(database=self.pg_db,
+                              user=self.pg_username,
+                              password=self.pg_password,
+                              port=self.pg_port,
+                              host=self.pg_host) as conn:
+            self.area_series = pd.read_sql_query(q, conn)
+        
+        
+def import_secrets(ini_path):
+    config = configparser.ConfigParser()
+    config.read(ini_path)
+    return config['postgres']
+
 ini_path = '/home/bapfeld/scoothome/setup.ini'
-pg, ds_key = import_secrets(ini_path)
+pg = import_secrets(ini_path)
 test_area = '9.0-48453001100'
 
-m = tsModel(pg, ds_key)
+m = tsFetch(pg)
 m.get_area_series(test_area)
 
 dat = m.area_series.copy()
