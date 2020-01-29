@@ -167,7 +167,7 @@ class updater():
             new_rides = pd.DataFrame.from_records(res)
             self.new_rides = self.basic_clean(new_rides)
         except:
-            pass
+            self.new_rides = None
 
     def write_new_rides(self):
         self.new_rides.to_sql('rides', self.engine, if_exists='append', index=False)
