@@ -279,9 +279,9 @@ class updater():
 
     def new_rides_to_ts(self):
         new_rides = pd.read_sql(f"SELECT * FROM rides WHERE start_time > '{self.max_ts_date}'", self.conn)
-        new_rides['location_start_id'] = new_rides['council_district_start'].astype(str) + '-' + new_rides['census_tract_start'].astype(str)
+        new_rides['location_start_id'] = new_rides['council_district_start'].astype(float).astype(str) + '-' + new_rides['census_tract_start'].astype(str)
         new_rides['location_start_id'] = [re.sub(r'^(\d)-', r'0\1-', x) for x in new_rides['location_start_id']]
-        new_rides['location_end_id'] = new_rides['council_district_end'].astype(str) + '-' + new_rides['census_tract_end'].astype(str)
+        new_rides['location_end_id'] = new_rides['council_district_end'].astype(float).astype(str) + '-' + new_rides['census_tract_end'].astype(str)
         new_rides['location_end_id'] = [re.sub(r'^(\d)-', r'0\1-', x) for x in new_rides['location_end_id']]
         new_rides['date'] = new_rides['start_time'].astype(str).str.extract(r'(\d\d\d\d-\d\d-\d\d)?')
 
