@@ -39,9 +39,13 @@ class tsModel():
     def init_ds_obj(self):
         self.ds = DarkSky(self.ds_key)
         
-    def get_area_series(self, idx, log_transform=False, window_start=None, window_end=None):
+    def get_area_series(self, idx, series='scooter', log_transform=False, window_start=None, window_end=None):
         self.idx = idx
-        q = f"SELECT * FROM ts WHERE area = '{idx}'"
+        self.series = series
+        if self.series == 'scooter':
+            q = f"SELECT n, in_use FROM ts WHERE area = '{idx}'"
+        else:
+            q = f"SELECT bike_n, bike_in_use FROM ts WHERE area = '{idx}'"
         if window_start is not None:
             q = q + f" AND time >= '{window_start}' AND time <= '{window_end}'"
         self.area_series = pd.read_sql_query(q, self.conn)
@@ -49,7 +53,32 @@ class tsModel():
             self.area_series = self.area_series.set_index('time').resample(self.bin_window).sum()
             self.area_series.reset_index(inplace=True)
         if log_transform:
-            self.area_series['n'] = np.log(self.area_series['n'] + 1)
+            if series == 'scooter':
+                self.area_series['n'] = np.log(self.area_series['n'] + 1)
+                self.area_series['in'] = np.log(self.area_series['in_use'] + 1)
+            else:
+                self.area_series['bike_n'] = np.log(self.area_series['bike_n'] + 1)
+                self.area_series['bike_in'] = np.log(self.area_series['bike_in_use'] + 1)
+
+    def transform_area_series(self, select_var=None, diff=False):
+        if self.series == 'scooter':
+            if select_var is not None:
+                if select_var == 'n':
+                    self.area_series.drop(columns=['in_use'], inplace=True)
+                elif select_var == 'in_use':
+                    self.area_series.drop(columns=['n'], inplace=True)
+            elif diff:
+                self.area_series['available'] = self.area_series.apply(lambda x: max([0, x['n'] - x['in_use']]), axis=1)
+                self.area_series.drop(columns=['n', 'in_use'], inplace=True)
+        else:
+            if select_var is not None:
+                if select_var == 'bike_n':
+                    self.area_series.drop(columns=['bike_in_use'], inplace=True)
+                elif select_var == 'bike_in_use':
+                    self.area_series.drop(columns=['bike_n'], inplace=True)
+            elif diff:
+                self.area_series['available'] = self.area_series.apply(lambda x: max([0, x['bike_n'] - x['bike_in_use']]), axis=1)
+                self.area_series.drop(columns=['bike_n', 'bike_in_use'], inplace=True)
 
     def get_weather_data(self):
         start_time = self.area_series['time'].min()
@@ -180,6 +209,7 @@ class tsModel():
             hourly, 
             varlist=['temp', 'wind', 'cloud_cover', 'humidity']):
         self.get_area_series(area_key)
+        self.transform_area_series(select_var='n')
         self.get_weather_data()
         self.prep_model_data()
         self.build_model(varlist=varlist, hourly=hourly)
