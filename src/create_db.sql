@@ -10,6 +10,9 @@ CREATE TABLE ts
 
 COPY ts FROM '/home/postgres/new_ts.csv' DELIMITER ',' CSV HEADER;
 
+ALTER TABLE ts ADD COLUMN bike_n INT;
+ALTER TABLE ts ADD COLUMN bike_in_use INT;
+
 CREATE TABLE weather
 (
   time TIMESTAMP UNIQUE,
