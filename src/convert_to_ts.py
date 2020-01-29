@@ -155,19 +155,42 @@ class ts_maker():
                     print(n)
             self.where_am_i(idx)
 
-def look_back(row):
-    pass
+def look_back(v_id, v_id_prev, start_time, end_time, end_time_prev):
+    if v_id == v_id_prev:
+        if area == area_prev:
+            if start_time == end_time_prev:
+                return 0
+            else:
+                t = start_time - end_time_prev
+                if t.total_seconds() > 86400:
+                    return 8
+            
 
-def look_ahead(v_id, v_id_next, area, area_next):
+def look_ahead(v_id, v_id_next, area, area_next,
+               start_time, end_time, start_time_next):
+    # start by calculating the number of 15 minute blocks the vehicle was actually used
+    per = end_time - start_time
+    per = ((per.total_seconds()) / 60) // 15 + 1
     if v_id == v_id_next:
         # same vehicle
         if area == area_next:
             # area is the same
-            pass
+            # does it sit idle?
+            if end_time != start_time_next:
+                t = start_time_next - end_time
+                if t.total_seconds() >= 86400:
+                    # long idle we say it sat around a little and then was charged
+                    return per + 48
+                else:
+                    new_t = ((t.total_seconds() / 60)) // 15
+                    return per + new_t
+            else:
+                return per
         else:
             # area is different
-            pass
+            return per
     else:
+        # different vehicle
         pass
 
 def main(dat_path,
@@ -186,8 +209,8 @@ def main(dat_path,
     dat.drop(columns=['trip_id', 'modified_date', 'month',
                       'hour', 'day_of_week', 'year'], inplace=True)
     dat = dat.apply(lambda x: pd.to_datetime(x) if x.name in ['start_time', 'end_time'] else x)
-    dat.sort_values(['device_id', 'council_district_start',
-                     'census_tract_start', 'start_time'], inplace=True)
+    dat.sort_values(['device_id', 'start_time', 'council_district_start',
+                     'census_tract_start'], inplace=True)
 
     # generate lead and lag values
     dat_lead = pd.shift(dat, -1)
@@ -200,7 +223,10 @@ def main(dat_path,
     dat['pos_periods'] = dat.apply(lambda row: look_ahead(row['vehicle_id'].values,
                                                           row['vehicle_id_lead'].values,
                                                           row['area'].values,
-                                                          row['area_lead'].values),
+                                                          row['area_lead'].values,
+                                                          row['start_time'].values,
+                                                          row['end_time'].values,
+                                                          row['start_time_lead'].values),
                                    axis=1)
 
 
