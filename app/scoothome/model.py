@@ -19,9 +19,11 @@ class tsModel():
     """Class to query required underlying data, estimate a model, and forecast.
 
     """
-    def __init__(self, pg, ds_key, bin_window='15T'):
+    def __init__(self, pg, ds_key, bin_window='15T', include_weather=True):
         self.ds_key = ds_key
-        self.init_ds_obj()
+        self.include_weather = include_weather
+        if include_weather:
+            self.init_ds_obj()
         self.bin_window = bin_window
         self.pg_username = pg['username']
         self.pg_password = pg['password']
@@ -98,7 +100,8 @@ class tsModel():
             self.weather = self.weather.set_index('time').resample(self.bin_window).mean()
 
     def prep_model_data(self):
-        self.dat = pd.merge(self.area_series, self.weather, how='right', on='time')
+        if self.include_weather:
+            self.dat = pd.merge(self.area_series, self.weather, how='right', on='time')
         self.dat.fillna(0, inplace=True)
         if self.bin_window != '15T':
             self.dat.drop(columns=['district', 'tract'], inplace=True)
@@ -133,13 +136,13 @@ class tsModel():
         self.holidays = pd.concat((sxsw, acl))
         
 
-    def build_model(self, scale=0.05, hourly=False, holidays_scale=10.0, varlist=['temp', 'wind', 'cloud_cover', 'humidity']):
+    def build_model(self, scale=0.05, hourly=False, holidays_scale=10.0):
         self.make_special_events()
         self.model = Prophet(changepoint_prior_scale=scale,
                              holidays=self.holidays,
                              holidays_prior_scale=holidays_scale)
-        if len(varlist) > 0:
-            for v in varlist:
+        if self.include_weather:
+            for v in ['temp', 'wind', 'cloud_cover', 'humidity']:
                 self.model.add_regressor(v)
         if hourly:
             self.model.add_seasonality(name='hourly', period=0.04167, fourier_order=1)
@@ -148,11 +151,10 @@ class tsModel():
         self.model.fit(self.dat)
 
     def build_prediction_df(self, lat, lon, periods=192, get_forecast=True, update_weather=True):
-        if get_forecast:
-            self.get_weather_pred(lat, lon)
         future = self.model.make_future_dataframe(periods=periods, freq='15T')
-        self.future = pd.merge(future, self.weather, how='left', left_on='ds', right_on='time')
-        if update_weather:
+        if self.include_weather:
+            self.get_weather_pred(lat, lon)
+            self.future = pd.merge(future, self.weather, how='left', left_on='ds', right_on='time')
             self.future.update(self.future_weather)
 
     def get_weather_pred(self, lat, lon):
