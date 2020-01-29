@@ -3,6 +3,7 @@ import numpy as np
 import configparser, argparse
 import os, datetime
 import psycopg2
+from sqlalchemy import create_engine
 from fbprophet import Prophet
 from fbprophet.diagnostics import cross_validation, performance_metrics
 from fbprophet.plot import plot_cross_validation_metric
@@ -38,9 +39,11 @@ class tsModel():
     def init_ds_obj(self):
         self.ds = DarkSky(self.ds_key)
         
-    def get_area_series(self, idx, log_transform=False):
+    def get_area_series(self, idx, log_transform=False, window_start=None, window_end=None):
         self.idx = idx
         q = f"SELECT * FROM ts WHERE area = '{idx}'"
+        if window_start is not None:
+            q = q + f" AND time >= '{window_start}' AND time <= '{window_end}'"
         self.area_series = pd.read_sql_query(q, self.conn)
         if self.bin_window != "15T":
             self.area_series = self.area_series.set_index('time').resample(self.bin_window).sum()
