@@ -5,12 +5,10 @@ CREATE TABLE ts
   tract BIGINT,
   time TIMESTAMP,
   N INT
+  in_use INT
 );
 
-COPY ts FROM '/home/postgres/db.csv' DELIMITER ',' CSV HEADER;
-
-ALTER TABLE ts
-ADD COLUMN in_use INT;
+COPY ts FROM '/home/postgres/new_ts.csv' DELIMITER ',' CSV HEADER;
 
 CREATE TABLE weather
 (
