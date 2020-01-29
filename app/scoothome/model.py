@@ -231,13 +231,13 @@ def main(pg, ds_key):
 
 
 def initialize_params():
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            '--ini_path',
-            help="Path to the .ini file containing the app token",
-            required=False,
-        )
-        return parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--ini_path',
+        help="Path to the .ini file containing the app token",
+        required=False,
+    )
+    return parser.parse_args()
 
 if __name__ == "__main__":
     args = initialize_params()
