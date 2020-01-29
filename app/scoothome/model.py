@@ -3,6 +3,7 @@ import numpy as np
 import configparser, argparse
 import os, datetime
 import psycopg2
+from sqlalchemy import create_engine
 from fbprophet import Prophet
 from fbprophet.diagnostics import cross_validation, performance_metrics
 from fbprophet.plot import plot_cross_validation_metric
@@ -27,12 +28,22 @@ class tsModel():
         self.ds_key = ds_key
         self.init_ds_obj()
         self.bin_window = bin_window
+        self.pg_username = pg['username']
+        self.pg_password = pg['password']
+        self.pg_host = pg['host']
+        self.pg_db = pg['database']
+        self.pg_port = pg['port']
+        self.ds_key = ds_key
+        self.engine = create_engine(f'postgresql://{self.pg_username}:{self.pg_password}@{self.pg_host}:{self.pg_port}/{self.pg_db}')
         
     def init_ds_obj(self):
         self.ds = DarkSky(self.ds_key)
         
-    def get_area_series(self, idx, log_transform=False):
+    def get_area_series(self, idx, log_transform=False, window_start=None, window_end=None):
+        self.idx = idx
         q = f"SELECT * FROM ts WHERE area = '{idx}'"
+        if window_start is not None:
+            q = q + f" AND time >= '{window_start}' AND time <= '{window_end}'"
         self.area_series = pd.read_sql_query(q, self.conn)
         if self.bin_window != "15T":
             self.area_series = self.area_series.set_index('time').resample(self.bin_window).sum()
@@ -86,22 +97,27 @@ class tsModel():
         self.holidays = pd.concat((sxsw, acl))
         
 
-    def build_model(self, scale=0.05, varlist=['temp', 'wind', 'cloud_cover', 'humidity']):
+    def build_model(self, scale=0.05, hourly=False, holidays_scale=10.0, varlist=['temp', 'wind', 'cloud_cover', 'humidity']):
         self.make_special_events()
-        self.model = Prophet(changepoint_prior_scale=scale, holidays=self.holidays)
+        self.model = Prophet(changepoint_prior_scale=scale,
+                             holidays=self.holidays,
+                             holidays_prior_scale=holidays_scale)
         if len(varlist) > 0:
             for v in varlist:
                 self.model.add_regressor(v)
+        if hourly:
+            self.model.add_seasonality(name='hourly', period=0.04167, fourier_order=1)
 
     def train_model(self):
         self.model.fit(self.dat)
 
-    def build_prediction_df(self, lat, lon, periods=192, get_forecast=True):
+    def build_prediction_df(self, lat, lon, periods=192, get_forecast=True, update_weather=True):
         if get_forecast:
             self.get_weather_pred(lat, lon)
         future = self.model.make_future_dataframe(periods=periods, freq='15T')
         self.future = pd.merge(future, self.weather, how='left', left_on='ds', right_on='time')
-        self.future.update(self.future_weather)
+        if update_weather:
+            self.future.update(self.future_weather)
 
     def get_weather_pred(self, lat, lon):
         w_pred = self.ds.get_forecast(lat, lon,
@@ -137,6 +153,16 @@ class tsModel():
     def predict(self):
         self.fcst = self.model.predict(self.future)
 
+    def preds_to_sql(self):
+        fcst_out = self.fcst.copy()
+        fcst_out['area'] = self.idx
+        fcst_out.columns = map(lambda x: x.lower(), fcst_out.columns)
+        fcst_out.to_sql('predictions', self.engine, if_exists='append', index=False)
+
+    def query_preds(self, time_stamp):
+        q = f"SELECT * FROM predictions WHERE area = '{self.idx}' AND ds >= '{time_stamp}'"
+        self.old_preds = pd.read_sql(q, self.conn)
+
     def plot_results(self):
         self.fig = self.model.plot(self.fcst)
         #fig.savefig(outflow)
@@ -151,11 +177,12 @@ class tsModel():
             area_key,
             lat,
             lon,
+            hourly, 
             varlist=['temp', 'wind', 'cloud_cover', 'humidity']):
         self.get_area_series(area_key)
         self.get_weather_data()
         self.prep_model_data()
-        self.build_model(varlist=varlist)
+        self.build_model(varlist=varlist, hourly=hourly)
         self.train_model()
         t_diff = datetime.datetime.now() + datetime.timedelta(days=2) - self.area_series['time'].max()
         hours_diff = (t_diff.days * 24) + (t_diff.seconds / 3600)

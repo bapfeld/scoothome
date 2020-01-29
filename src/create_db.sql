@@ -42,3 +42,12 @@ CREATE TABLE rides
 );
 
 COPY rides FROM '/home/postgres/rides.csv' DELIMITER ',' CSV HEADER;
+
+CREATE TABLE predictions
+(
+  area VARCHAR(16),
+  ds TIMESTAMP,
+  yhat REAL,
+  yhat_lower REAL,
+  yhat_upper REAL
+);

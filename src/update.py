@@ -115,12 +115,13 @@ class updater():
         self.pg_db = pg['database']
         self.pg_port = pg['port']
         self.ds_key = ds_key
+        self.pg = pg
         self.engine = create_engine(f'postgresql://{self.pg_username}:{self.pg_password}@{self.pg_host}:{self.pg_port}/{self.pg_db}')
 
     def get_new_weather_history(self):
         days = [x for x in daterange(self.max_weather_date, datetime.datetime.today(), inclusive=False)]
         # create an object and make requests
-        self.w = historicalWeather(pg, ds_key, self.max_weather_date)
+        self.w = historicalWeather(self.pg, self.ds_key, self.max_weather_date)
         for day in days:
             self.w.fetch_day_history(day)
             time.sleep(1)
@@ -167,7 +168,7 @@ class updater():
             new_rides = pd.DataFrame.from_records(res)
             self.new_rides = self.basic_clean(new_rides)
         except:
-            pass
+            self.new_rides = None
 
     def write_new_rides(self):
         self.new_rides.to_sql('rides', self.engine, if_exists='append', index=False)
@@ -188,7 +189,8 @@ def main():
     upd = updater(app_token, pg, ds_key)
     upd.get_max_dates()
     upd.get_new_ride_data()
-    upd.write_new_rides()
+    if upd.new_rides is not None:
+        upd.write_new_rides()
     upd.get_new_weather_history()
 
 

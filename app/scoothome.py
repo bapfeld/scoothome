@@ -70,7 +70,7 @@ def reload_after_error(error):
 
 def make_prediction(area, pg, ds_key, lat, lon, model_save_path):
     m = tsModel(pg, ds_key)
-    m.run(area, lat, lon, varlist=[])
+    m.run(area, lat, lon, hourly=False, varlist=['temp', 'wind', 'cloud_cover', 'humidity'])
     m.save_results(model_save_path)
     return m
     # plot_res = m.fig

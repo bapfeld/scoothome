@@ -45,12 +45,15 @@ def initialize_params():
         )
         return parser.parse_args()
 
-def modeler(pg, ds_key, area, log, bin_window, cps):
+def modeler(pg, ds_key, area, log, bin_window, cps, hs):
     m = tsModel(pg, ds_key, bin_window)
     m.get_area_series(area, log)
     m.get_weather_data()
     m.prep_model_data()
-    m.build_model(scale=cps)
+    if cps in ['15T', '1H']:
+            m.build_model(scale=cps, hourly=True, holidays_scale=hs)
+    else:
+            m.build_model(scale=cps, holidays_scale=hs)
     m.train_model()
     m.build_prediction_df(lat = 30.267151, lon = -97.743057, periods=192)
     m.future.dropna(inplace=True)
@@ -66,7 +69,8 @@ def main():
     test_area = '9.0-48453001100'
     bin_sizes = ['15T', '1H', '6H', '1D']
     log_transforms = [False]
-    opts = [bin_sizes, log_transforms]
+    holiday_scales = [5.0, 10.0, 20.0]
+    opts = [bin_sizes, log_transforms, holiday_scales]
     for c in product(*opts):
         f_out = dir_out + '_'.join(list(map(str, c))) + '_' + str(args.changepoint_prior_scale) + '.pdf'
         if not os.path.exists(f_out):
@@ -74,7 +78,8 @@ def main():
                         area=test_area,
                         log=c[1],
                         bin_window=c[0],
-                        cps=args.changepoint_prior_scale)
+                        cps=args.changepoint_prior_scale,
+                        hs=c[2])
             with PdfPages(f_out) as pdf:
                 fig = m.model.plot(m.fcst)
                 pdf.savefig()
