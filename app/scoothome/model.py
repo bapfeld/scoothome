@@ -191,10 +191,11 @@ class tsModel():
     def predict(self):
         self.fcst = self.model.predict(self.future)
 
-    def preds_to_sql(self):
+    def preds_to_sql(self, var):
         fcst_out = self.fcst.copy()
-        fcst_out['area'] = self.idx
         fcst_out.columns = map(lambda x: x.lower(), fcst_out.columns)
+        fcst_out['area'] = self.idx
+        fcst_out['var'] = var
         fcst_out.to_sql('predictions', self.engine, if_exists='append', index=False)
 
     def query_preds(self, time_stamp):
