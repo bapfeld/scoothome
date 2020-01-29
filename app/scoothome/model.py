@@ -150,7 +150,8 @@ class tsModel():
     def train_model(self):
         self.model.fit(self.dat)
 
-    def build_prediction_df(self, lat, lon, periods=192, get_forecast=True, update_weather=True):
+    def build_prediction_df(self, lat = 30.267151, lon = -97.743057,
+                            periods=192, get_forecast=True, update_weather=True):
         future = self.model.make_future_dataframe(periods=periods, freq='15T')
         if self.include_weather:
             self.get_weather_pred(lat, lon)
