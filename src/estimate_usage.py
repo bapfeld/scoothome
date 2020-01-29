@@ -26,6 +26,7 @@ counts = pd.DataFrame.from_dict(Counter(dat['full_index']),
 counts['area'] = counts['index'].str.extract(r'^(.*?)--')
 counts['time'] = counts['index'].str.extract(r'--(.*?)$')
 counts.drop(columns=['index'], inplace=True)
+counts['time'] = pd.to_datetime(counts['time'])
 
 # this represents the actual usage
 # so write to the db
@@ -45,4 +46,8 @@ with psycopg2.connect(dbname=pg_db, user=pg_username,
                       port=pg_port) as conn:
     ts = pd.read_sql('SELECT * FROM ts', conn)
 
-new_ts = pd.merge(ts, counts, how='left', left_on=['area', 'time'])
+new_ts = pd.merge(ts, counts, how='left', on=['area', 'time'])
+new_ts['in_use'].fillna(0, inplace=True)
+new_ts['in_use'] = new_ts['in_use'].astype(int)
+
+new_ts.to_csv('/home/bapfeld/scoothome/data/new_ts.csv', index=False)
