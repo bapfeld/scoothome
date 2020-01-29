@@ -31,6 +31,22 @@ def initialize_params():
         required=True,
         default='scooter'
     )
+    parser.add_argument(
+        '--completed_area_file',
+        help="File to write completed areas to",
+        required=True
+    )
+    parser.add_argument(
+        '--proc_num',
+        help="For a script running multiple processes at once, which number is this?",
+        required=False,
+    )
+    parser.add_argument(
+        '--total_processes',
+        help="Total number of processes being run at once",
+        required=True,
+        default=1
+    )
     return parser.parse_args()
 
 def generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type):
@@ -61,10 +77,24 @@ def main():
     bin_window = '15T'
     hs = 50
     cps = 100
+    t_processes = int(args.total_processes)
+    if args.proc_num is not None:
+        proc_num = int(args.proc_num)
     with open(os.path.expanduser(args.area_list_file), 'r') as f_in:
         area_list = [x.strip() for x in f_in.readlines()]
-    for area in area_list:
-        generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type)
+    with open(os.path.expanduser(args.completed_area_file), 'r') as f_in:
+        completed_list = [x.strip() for x in f_in.readlines()]
+    area_list = [x for x in area_list if x not in completed_list]
+    for i, area in enumerate(area_list):
+        if t_processes > 1:
+            if i % proc_num == 0:
+                generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type)
+                with open(os.path.expanduser(args.completed_list), 'a') as f_out:
+                    f_out.writelines(area, "\n")
+            else:
+                pass
+        else:
+            generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type)
     
 
 if __name__ == "__main__":
