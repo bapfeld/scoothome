@@ -20,11 +20,6 @@ class tsModel():
 
     """
     def __init__(self, pg, ds_key, bin_window='15T'):
-        self.conn = psycopg2.connect(database=pg['database'],
-                                     user=pg['username'],
-                                     password=pg['password'],
-                                     port=pg['port'],
-                                     host=pg['host'])
         self.ds_key = ds_key
         self.init_ds_obj()
         self.bin_window = bin_window
@@ -48,7 +43,12 @@ class tsModel():
             q = f"SELECT bike_n, bike_in_use, area, district, tract, time FROM ts WHERE area = '{idx}'"
         if window_start is not None:
             q = q + f" AND time >= '{window_start}' AND time <= '{window_end}'"
-        self.area_series = pd.read_sql_query(q, self.conn)
+        with psycopg2.connect(database=self.pg_db,
+                              user=self.pg_username,
+                              password=self.pg_password,
+                              port=self.pg_port,
+                              host=self.pg_host) as conn:
+            self.area_series = pd.read_sql_query(q, conn)
         if self.bin_window != "15T":
             self.area_series = self.area_series.set_index('time').resample(self.bin_window).sum()
             self.area_series.reset_index(inplace=True)
@@ -84,7 +84,12 @@ class tsModel():
         start_time = self.area_series['time'].min()
         end_time = self.area_series['time'].max()
         q = f"SELECT * FROM weather WHERE time >= '{start_time}' AND time <= '{end_time}'"
-        self.weather = pd.read_sql_query(q, self.conn)
+        with psycopg2.connect(database=self.pg_db,
+                              user=self.pg_username,
+                              password=self.pg_password,
+                              port=self.pg_port,
+                              host=self.pg_host) as conn:
+            self.weather = pd.read_sql_query(q, conn)
         if self.bin_window == '15T':
             self.weather = self.weather.set_index('time').resample('15T').pad()
         elif self.bin_window == '1H':
@@ -192,7 +197,12 @@ class tsModel():
 
     def query_preds(self, time_stamp):
         q = f"SELECT * FROM predictions WHERE area = '{self.idx}' AND ds >= '{time_stamp}'"
-        self.old_preds = pd.read_sql(q, self.conn)
+        with psycopg2.connect(database=self.pg_db,
+                              user=self.pg_username,
+                              password=self.pg_password,
+                              port=self.pg_port,
+                              host=self.pg_host) as conn:
+            self.old_preds = pd.read_sql(q, conn)
 
     def plot_results(self):
         self.fig = self.model.plot(self.fcst)
