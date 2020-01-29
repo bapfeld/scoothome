@@ -4,7 +4,7 @@ CREATE TABLE ts
   district INT,
   tract BIGINT,
   time TIMESTAMP,
-  N INT
+  N INT,
   in_use INT
 );
 
