@@ -27,11 +27,19 @@ class tsModel():
         self.ds_key = ds_key
         self.init_ds_obj()
         self.bin_window = bin_window
+        self.pg_username = pg['username']
+        self.pg_password = pg['password']
+        self.pg_host = pg['host']
+        self.pg_db = pg['database']
+        self.pg_port = pg['port']
+        self.ds_key = ds_key
+        self.engine = create_engine(f'postgresql://{self.pg_username}:{self.pg_password}@{self.pg_host}:{self.pg_port}/{self.pg_db}')
         
     def init_ds_obj(self):
         self.ds = DarkSky(self.ds_key)
         
     def get_area_series(self, idx, log_transform=False):
+        self.idx = idx
         q = f"SELECT * FROM ts WHERE area = '{idx}'"
         self.area_series = pd.read_sql_query(q, self.conn)
         if self.bin_window != "15T":
@@ -140,6 +148,16 @@ class tsModel():
 
     def predict(self):
         self.fcst = self.model.predict(self.future)
+
+    def preds_to_sql(self):
+        fcst_out = self.fcst.copy()
+        fcst_out['area'] = self.idx
+        fcst_out.columns = map(lambda x: x.lower(), fcst_out.columns)
+        fcst_out.to_sql('predictions', self.engine, if_exists='append', index=False)
+
+    def query_preds(self, time_stamp):
+        q = f"SELECT * FROM predictions WHERE area = '{self.idx}' AND ds >= '{time_stamp}'"
+        self.old_preds = pd.read_sql(q, self.conn)
 
     def plot_results(self):
         self.fig = self.model.plot(self.fcst)
