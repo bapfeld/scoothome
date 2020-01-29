@@ -53,5 +53,6 @@ CREATE TABLE predictions
   ds TIMESTAMP,
   yhat REAL,
   yhat_lower REAL,
-  yhat_upper REAL
-);
+  yhat_upper REAL,
+  var VARCHAR(11)
+ );
