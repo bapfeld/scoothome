@@ -188,7 +188,8 @@ def main():
     upd = updater(app_token, pg, ds_key)
     upd.get_max_dates()
     upd.get_new_ride_data()
-    upd.write_new_rides()
+    if upd.new_rides is not None:
+        upd.write_new_rides()
     upd.get_new_weather_history()
 
 
