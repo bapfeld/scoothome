@@ -138,7 +138,7 @@ def results():
         map_url = f"https://www.openstreetmap.org/export/embed.html?bbox={bbox_1}%2C{bbox_2}%2C{bbox_3}%2C{bbox_4}&amp;layer=mapnik&amp;marker={lat}%2C{lon}"
 
     return render_template('results.html',
-                           location=input_location,
+                           location=input_location.title(),
                            time=t.strftime("%I:%M%p on %A, %B %d"),
                            estimates=total_estimates,
                            lat=lat,
