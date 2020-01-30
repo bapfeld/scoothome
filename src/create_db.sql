@@ -4,10 +4,14 @@ CREATE TABLE ts
   district INT,
   tract BIGINT,
   time TIMESTAMP,
-  N INT
+  N INT,
+  in_use INT
 );
 
-COPY ts FROM '/home/postgres/db.csv' DELIMITER ',' CSV HEADER;
+COPY ts FROM '/home/postgres/new_ts.csv' DELIMITER ',' CSV HEADER;
+
+ALTER TABLE ts ADD COLUMN bike_n INT;
+ALTER TABLE ts ADD COLUMN bike_in_use INT;
 
 CREATE TABLE weather
 (
@@ -49,5 +53,6 @@ CREATE TABLE predictions
   ds TIMESTAMP,
   yhat REAL,
   yhat_lower REAL,
-  yhat_upper REAL
-);
+  yhat_upper REAL,
+  var VARCHAR(11)
+ );

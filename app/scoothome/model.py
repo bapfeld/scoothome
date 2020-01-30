@@ -19,14 +19,11 @@ class tsModel():
     """Class to query required underlying data, estimate a model, and forecast.
 
     """
-    def __init__(self, pg, ds_key, bin_window='15T'):
-        self.conn = psycopg2.connect(database=pg['database'],
-                                     user=pg['username'],
-                                     password=pg['password'],
-                                     port=pg['port'],
-                                     host=pg['host'])
+    def __init__(self, pg, ds_key, bin_window='15T', include_weather=True):
         self.ds_key = ds_key
-        self.init_ds_obj()
+        self.include_weather = include_weather
+        if include_weather:
+            self.init_ds_obj()
         self.bin_window = bin_window
         self.pg_username = pg['username']
         self.pg_password = pg['password']
@@ -39,23 +36,62 @@ class tsModel():
     def init_ds_obj(self):
         self.ds = DarkSky(self.ds_key)
         
-    def get_area_series(self, idx, log_transform=False, window_start=None, window_end=None):
+    def get_area_series(self, idx, series='scooter', log_transform=False, window_start=None, window_end=None):
         self.idx = idx
-        q = f"SELECT * FROM ts WHERE area = '{idx}'"
+        self.series = series
+        if self.series == 'scooter':
+            q = f"SELECT n, in_use, area, district, tract, time FROM ts WHERE area = '{idx}'"
+        else:
+            q = f"SELECT bike_n, bike_in_use, area, district, tract, time FROM ts WHERE area = '{idx}'"
         if window_start is not None:
             q = q + f" AND time >= '{window_start}' AND time <= '{window_end}'"
-        self.area_series = pd.read_sql_query(q, self.conn)
+        with psycopg2.connect(database=self.pg_db,
+                              user=self.pg_username,
+                              password=self.pg_password,
+                              port=self.pg_port,
+                              host=self.pg_host) as conn:
+            self.area_series = pd.read_sql_query(q, conn)
         if self.bin_window != "15T":
             self.area_series = self.area_series.set_index('time').resample(self.bin_window).sum()
             self.area_series.reset_index(inplace=True)
         if log_transform:
-            self.area_series['n'] = np.log(self.area_series['n'] + 1)
+            if series == 'scooter':
+                self.area_series['n'] = np.log(self.area_series['n'] + 1)
+                self.area_series['in'] = np.log(self.area_series['in_use'] + 1)
+            else:
+                self.area_series['bike_n'] = np.log(self.area_series['bike_n'] + 1)
+                self.area_series['bike_in'] = np.log(self.area_series['bike_in_use'] + 1)
+
+    def transform_area_series(self, select_var='n'):
+        if self.series == 'scooter':
+            if select_var == 'n':
+                self.area_series.drop(columns=['in_use'], inplace=True)
+            elif select_var == 'in_use':
+                self.area_series.drop(columns=['n'], inplace=True)
+            elif select_var == 'diff':
+                self.area_series['available'] = self.area_series.apply(lambda x: max([0, x['n'] - x['in_use']]),
+                                                                       axis=1)
+                self.area_series.drop(columns=['n', 'in_use'], inplace=True)
+        else:
+            if select_var == 'bike_n':
+                self.area_series.drop(columns=['bike_in_use'], inplace=True)
+            elif select_var == 'bike_in_use':
+                self.area_series.drop(columns=['bike_n'], inplace=True)
+            elif select_var == 'diff':
+                self.area_series['available'] = self.area_series.apply(lambda x: max([0, x['bike_n'] - x['bike_in_use']]),
+                                                                       axis=1)
+                self.area_series.drop(columns=['bike_n', 'bike_in_use'], inplace=True)
 
     def get_weather_data(self):
         start_time = self.area_series['time'].min()
         end_time = self.area_series['time'].max()
         q = f"SELECT * FROM weather WHERE time >= '{start_time}' AND time <= '{end_time}'"
-        self.weather = pd.read_sql_query(q, self.conn)
+        with psycopg2.connect(database=self.pg_db,
+                              user=self.pg_username,
+                              password=self.pg_password,
+                              port=self.pg_port,
+                              host=self.pg_host) as conn:
+            self.weather = pd.read_sql_query(q, conn)
         if self.bin_window == '15T':
             self.weather = self.weather.set_index('time').resample('15T').pad()
         elif self.bin_window == '1H':
@@ -64,13 +100,18 @@ class tsModel():
             self.weather = self.weather.set_index('time').resample(self.bin_window).mean()
 
     def prep_model_data(self):
-        self.dat = pd.merge(self.area_series, self.weather, how='right', on='time')
-        self.dat['n'].fillna(0, inplace=True)
+        if self.include_weather:
+            self.dat = pd.merge(self.area_series, self.weather, how='right', on='time')
+        else:
+            self.dat = self.area_series
+        self.dat.fillna(0, inplace=True)
         if self.bin_window != '15T':
             self.dat.drop(columns=['district', 'tract'], inplace=True)
         else:
             self.dat.drop(columns=['area', 'district', 'tract'], inplace=True)
-        self.dat.rename(columns={'time': 'ds', 'n': 'y'}, inplace=True)
+        self.dat.rename(columns={'time': 'ds', 'n': 'y', 'in_use': 'y',
+                                 'bike_n': 'y', 'bike_in_use': 'y', 'available': 'y'},
+                        inplace=True)
 
     def make_special_events(self):
         sxsw = pd.DataFrame({
@@ -97,13 +138,13 @@ class tsModel():
         self.holidays = pd.concat((sxsw, acl))
         
 
-    def build_model(self, scale=0.05, hourly=False, holidays_scale=10.0, varlist=['temp', 'wind', 'cloud_cover', 'humidity']):
+    def build_model(self, scale=0.05, hourly=False, holidays_scale=10.0):
         self.make_special_events()
         self.model = Prophet(changepoint_prior_scale=scale,
                              holidays=self.holidays,
                              holidays_prior_scale=holidays_scale)
-        if len(varlist) > 0:
-            for v in varlist:
+        if self.include_weather:
+            for v in ['temp', 'wind', 'cloud_cover', 'humidity']:
                 self.model.add_regressor(v)
         if hourly:
             self.model.add_seasonality(name='hourly', period=0.04167, fourier_order=1)
@@ -111,12 +152,17 @@ class tsModel():
     def train_model(self):
         self.model.fit(self.dat)
 
-    def build_prediction_df(self, lat, lon, periods=192, get_forecast=True, update_weather=True):
-        if get_forecast:
+    def calculate_periods(self):
+        max_d = self.area_series['ds'].max()
+        two_weeks = datetime.datetime.now() + datetime.timedelta(weeks=2)
+        t_diff = two_weeks - max_d
+        return int(t_diff.total_seconds() / 3600 * 4)
+
+    def build_prediction_df(self, lat = 30.267151, lon = -97.743057, periods=192):
+        self.future = self.model.make_future_dataframe(periods=periods, freq='15T')
+        if self.include_weather:
             self.get_weather_pred(lat, lon)
-        future = self.model.make_future_dataframe(periods=periods, freq='15T')
-        self.future = pd.merge(future, self.weather, how='left', left_on='ds', right_on='time')
-        if update_weather:
+            self.future = pd.merge(self.future, self.weather, how='left', left_on='ds', right_on='time')
             self.future.update(self.future_weather)
 
     def get_weather_pred(self, lat, lon):
@@ -153,15 +199,23 @@ class tsModel():
     def predict(self):
         self.fcst = self.model.predict(self.future)
 
-    def preds_to_sql(self):
-        fcst_out = self.fcst.copy()
-        fcst_out['area'] = self.idx
+    def preds_to_sql(self, var):
+        fcst_out = self.fcst[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].copy()
         fcst_out.columns = map(lambda x: x.lower(), fcst_out.columns)
+        fcst_out['area'] = self.idx
+        fcst_out['var'] = var
+        time_cutoff = pd.to_datetime(datetime.datetime.today() - datetime.timedelta(days=1))
+        fcst_out = fcst_out[fcst_out['ds'] >= time_cutoff]
         fcst_out.to_sql('predictions', self.engine, if_exists='append', index=False)
 
     def query_preds(self, time_stamp):
         q = f"SELECT * FROM predictions WHERE area = '{self.idx}' AND ds >= '{time_stamp}'"
-        self.old_preds = pd.read_sql(q, self.conn)
+        with psycopg2.connect(database=self.pg_db,
+                              user=self.pg_username,
+                              password=self.pg_password,
+                              port=self.pg_port,
+                              host=self.pg_host) as conn:
+            self.old_preds = pd.read_sql(q, conn)
 
     def plot_results(self):
         self.fig = self.model.plot(self.fcst)
@@ -180,6 +234,7 @@ class tsModel():
             hourly, 
             varlist=['temp', 'wind', 'cloud_cover', 'humidity']):
         self.get_area_series(area_key)
+        self.transform_area_series(select_var='n')
         self.get_weather_data()
         self.prep_model_data()
         self.build_model(varlist=varlist, hourly=hourly)
@@ -199,13 +254,13 @@ def main(pg, ds_key):
 
 
 def initialize_params():
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            '--ini_path',
-            help="Path to the .ini file containing the app token",
-            required=False,
-        )
-        return parser.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--ini_path',
+        help="Path to the .ini file containing the app token",
+        required=False,
+    )
+    return parser.parse_args()
 
 if __name__ == "__main__":
     args = initialize_params()
