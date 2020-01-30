@@ -4,7 +4,7 @@ from wtforms import Form, TextField, TextAreaField, validators, StringField, Sub
 import datetime, re, requests
 import shapefile
 from shapely.geometry import Point, Polygon
-from scoothome.model import initialize_params, import_secrets
+from scoothome.model import initialize_params
 from scoothome.fetch_predictions import tsResults
 import pandas as pd
 import numpy as np
@@ -13,10 +13,14 @@ import os
 import psycopg2
 import dateparser
 
-
 app = Flask(__name__)
 
 # Define functions
+def import_secrets(ini_path):
+    config = configparser.ConfigParser()
+    config.read(ini_path)
+    return (config['postgres'], config['darksky']['key'], config['mapbox']['public_token'])
+
 def geocode_location(location):
     query = re.sub(r'\s+', '\+', location)
     request = f'https://nominatim.openstreetmap.org/search?q={query}&format=json'
@@ -137,9 +141,12 @@ def results():
                            location=input_location,
                            time=t.strftime("%I:%M%p on %A, %B %d"),
                            estimates=total_estimates,
-                           map_url=map_url)
+                           lat=lat,
+                           lon=lon, 
+                           map_url=map_url,
+                           accessToken=map_pub_token)
 
 if __name__ == "__main__":
     args = initialize_params()
-    pg, ds_key = import_secrets(os.path.expanduser(args.ini_path))
+    pg, ds_key, map_pub_token = import_secrets(os.path.expanduser(args.ini_path))
     app.run(host='0.0.0.0', debug=False)
