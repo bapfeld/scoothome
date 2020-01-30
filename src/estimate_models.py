@@ -54,23 +54,25 @@ def generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type):
     m.get_area_series(area, series=vehicle_type)
     m.transform_area_series(select_var='n')
     m.prep_model_data()
-    m.build_model(scale=cps, hourly=True, holidays_scale=hs)
-    m.train_model()
-    n_periods = m.calculate_periods()
-    m.build_prediction_df(periods=n_periods)
-    m.future.dropna(inplace=True)
-    m.predict()
-    m.preds_to_sql(var='n')
+    if m.dat.shape[0] > 9:
+        m.build_model(scale=cps, hourly=True, holidays_scale=hs)
+        m.train_model()
+        n_periods = m.calculate_periods()
+        m.build_prediction_df(periods=n_periods)
+        m.future.dropna(inplace=True)
+        m.predict()
+        m.preds_to_sql(var='n')
     m.get_area_series(area, series=vehicle_type)
     m.transform_area_series(select_var='in_use')
     m.prep_model_data()
-    m.build_model(scale=cps, hourly=True, holidays_scale=hs)
-    m.train_model()
-    n_periods = m.calculate_periods()
-    m.build_prediction_df(periods=n_periods)
-    m.future.dropna(inplace=True)
-    m.predict()
-    m.preds_to_sql(var='in_use')
+    if m.dat.shape[0] > 9:
+        m.build_model(scale=cps, hourly=True, holidays_scale=hs)
+        m.train_model()
+        n_periods = m.calculate_periods()
+        m.build_prediction_df(periods=n_periods)
+        m.future.dropna(inplace=True)
+        m.predict()
+        m.preds_to_sql(var='in_use')
 
 def main():
     args = initialize_params()
@@ -87,7 +89,7 @@ def main():
     with open(os.path.expanduser(args.completed_area_file), 'r') as f_in:
         completed_list = [x.strip() for x in f_in.readlines()]
     if t_processes > 1:
-        a_lists = np.array_split(area_list, len(area_list) // t_processes)
+        a_lists = np.array_split(area_list, t_processes)
         area_list = [x for x in a_lists[proc_num - 1] if x not in completed_list]
         for i, area in enumerate(area_list):
             if i % proc_num == 0:
