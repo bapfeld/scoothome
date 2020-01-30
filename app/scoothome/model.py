@@ -153,7 +153,7 @@ class tsModel():
         self.model.fit(self.dat)
 
     def calculate_periods(self):
-        max_d = self.area_series['time'].max()
+        max_d = self.area_series['ds'].max()
         two_weeks = datetime.datetime.now() + datetime.timedelta(weeks=2)
         t_diff = two_weeks - max_d
         return t_diff.total_seconds() / 3600 * 4
