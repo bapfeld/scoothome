@@ -222,7 +222,7 @@ class tsModel():
         self.fig = self.model.plot(self.fcst)
         #fig.savefig(outflow)
 
-    def cv(self, initial, period, horizon, log):
+    def cv(self, initial, period, horizon, log=False):
         self.df_cv = cross_validation(self.model, initial=initial, period=period, horizon=horizon)
         if log:
             self.df_cv = self.df_cv.apply(lambda x: np.exp(x) if x.name not in ['ds', 'cutoff'] else x)
