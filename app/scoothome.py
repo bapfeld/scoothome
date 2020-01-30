@@ -4,14 +4,12 @@ from wtforms import Form, TextField, TextAreaField, validators, StringField, Sub
 import datetime, re, requests
 import shapefile
 from shapely.geometry import Point, Polygon
-from scoothome.model import tsModel, initialize_params, import_secrets
+from scoothome.model import initialize_params, import_secrets
+from scoothome.fetch_predictions import tsResults
 import pandas as pd
 import configparser, argparse
 import os
 import psycopg2
-from fbprophet import Prophet
-from darksky.api import DarkSky
-from darksky.types import languages, units, weather
 import dateparser
 
 
@@ -68,12 +66,9 @@ def reload_after_error(error):
     now = calc_nowish()
     return render_template('index.html', now=now, error=error)
 
-def make_prediction(area, pg, ds_key, lat, lon, model_save_path):
-    m = tsModel(pg, ds_key)
-    m.run(area, lat, lon, hourly=False, varlist=['temp', 'wind', 'cloud_cover', 'humidity'])
-    m.save_results(model_save_path)
-    return m
-    # plot_res = m.fig
+def get_predictions(area, pg, t):
+    m = tsResults(pg, area, t)
+    
 
 # Define routes
 @app.route('/', methods=['GET'])
@@ -97,12 +92,7 @@ def results():
         area = loc_to_area(location)
         if area is None:
             return reload_after_error("Whoops, looks like that location isn't in Austin! Please try again.")
-        s_path = '/home/bapfeld/scoothome/models/' + area + '.pkl'
-        if os.path.exists(s_path):
-            pred = pd.read_pickle(s_path)
-        else:
-            model_pred = make_prediction(area, pg, ds_key, location[0], location[1], s_path)
-            pred = model_pred.fcst
+        model_pred = get_prediction(area, pg, ds_key, location[0], location[1], s_path)
 
         rounded_t = datetime.datetime(t.year, t.month, t.day, round(float(t.hour)))
 
