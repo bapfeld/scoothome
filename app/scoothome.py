@@ -7,6 +7,7 @@ from shapely.geometry import Point, Polygon
 from scoothome.model import initialize_params, import_secrets
 from scoothome.fetch_predictions import tsResults
 import pandas as pd
+import numpy as np
 import configparser, argparse
 import os
 import psycopg2
@@ -76,10 +77,17 @@ def get_predictions(area, pg, t):
     used_scooters = res.fetch_scooters('in_use')
     used_scooters.columns = map(lambda x: re.sub(r'^', 'in_use_', x),
                                 used_scooters.columns)
-    scooters = pd.merge(scooters, used_scooters, how='left', on='ds')
+    scooters = pd.merge(scooters, used_scooters, how='left', left_on='ds', right_on='in_use_ds')
+    scooters.sort_values('ds', inplace=True)
     return scooters
     
-    
+
+def format_time(t):
+    return t.strftime("%I:%M")
+
+def format_scoot_num(n):
+    n = max([0, n])
+    return int(np.round(n))
 
 # Define routes
 @app.route('/', methods=['GET'])
@@ -107,8 +115,9 @@ def results():
         model_pred = get_predictions(area, pg, rounded_t)
         total_estimates = []
         for i in range(6):
-            total_estimates.append({'time': pred.iloc[i, 0], 'N': max([pred.iloc[i, 1], 0]),
-                                    'In Use': max([0, pred['in_use_yhat'][i]])})
+            total_estimates.append({'time': format_time(model_pred.iloc[i, 0]),
+                                    'N': format_scoot_num(model_pred.iloc[i, 1]),
+                                    'In Use': format_scoot_num(model_pred['in_use_yhat'][i])})
 
         lat = location[0]
         lon = location[1]
