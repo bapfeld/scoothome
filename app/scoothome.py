@@ -129,7 +129,7 @@ def results():
 
     return render_template('results.html',
                            location=input_location,
-                           time=t,
+                           time=t.strftime("%I:%M%p on %A, %B %d"),
                            estimates=total_estimates,
                            map_url=map_url)
 
