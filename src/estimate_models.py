@@ -91,8 +91,9 @@ def main():
         if t_processes > 1:
             if i % proc_num == 0:
                 generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type)
-                with open(os.path.expanduser(args.completed_list), 'a') as f_out:
-                    f_out.writelines(area, "\n")
+                with open(os.path.expanduser(args.completed_area_file), 'a') as f_out:
+                    f_out.writelines(area)
+                    f_out.writelines('\n')
             else:
                 pass
         else:
