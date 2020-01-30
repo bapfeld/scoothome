@@ -86,9 +86,10 @@ def main():
         area_list = [x.strip() for x in f_in.readlines()]
     with open(os.path.expanduser(args.completed_area_file), 'r') as f_in:
         completed_list = [x.strip() for x in f_in.readlines()]
-    area_list = [x for x in area_list if x not in completed_list]
-    for i, area in enumerate(area_list):
-        if t_processes > 1:
+    if t_processes > 1:
+        a_lists = np.array_split(area_list, len(area_list) // t_processes)
+        area_list = [x for x in a_lists[proc_num - 1] if x not in completed_list]
+        for i, area in enumerate(area_list):
             if i % proc_num == 0:
                 generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type)
                 with open(os.path.expanduser(args.completed_area_file), 'a') as f_out:
@@ -96,9 +97,11 @@ def main():
                     f_out.writelines('\n')
             else:
                 pass
-        else:
-            generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type)
+    else:
+        area_list = [x for x in area_list if x not in completed_list]
+        generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type)
     
 
 if __name__ == "__main__":
     main()
+ 
