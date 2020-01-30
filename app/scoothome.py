@@ -23,9 +23,12 @@ def geocode_location(location):
     request = f'https://nominatim.openstreetmap.org/search?q={query}&format=json'
     res = requests.get(request)
     if res.status_code == 200:
-        lat = float(res.json()[0]['lat'])
-        lon = float(res.json()[0]['lon'])
-        return (lat, lon)
+        try:
+            lat = float(res.json()[0]['lat'])
+            lon = float(res.json()[0]['lon'])
+            return (lat, lon)
+        except IndexError:
+            return (None, None)
     else:
         return (None, None)
 
