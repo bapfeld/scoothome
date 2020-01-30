@@ -104,7 +104,7 @@ def results():
         if area is None:
             return reload_after_error("Whoops, looks like that location isn't in Austin! Please try again.")
         rounded_t = datetime.datetime(t.year, t.month, t.day, round(float(t.hour)))
-        model_pred = get_prediction(area, pg, rounded_t)
+        model_pred = get_predictions(area, pg, rounded_t)
         total_estimates = []
         for i in range(6):
             total_estimates.append({'time': pred.iloc[i, 0], 'N': max([pred.iloc[i, 1], 0]),
