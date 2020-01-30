@@ -56,3 +56,5 @@ CREATE TABLE predictions
   yhat_upper REAL,
   var VARCHAR(11)
  );
+
+ALTER TABLE predictions ADD COLUMN modified_date TIMESTAMP;
