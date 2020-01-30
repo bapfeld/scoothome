@@ -130,7 +130,7 @@ def results():
     return render_template('results.html',
                            location=input_location,
                            time=t,
-                           estimates=estimates,
+                           estimates=total_estimates,
                            map_url=map_url)
 
 if __name__ == "__main__":
