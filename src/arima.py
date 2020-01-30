@@ -86,6 +86,33 @@ print('Critical Values:')
 for key, value in adf_results[4].items():
     print(f'\t{key}: {value:.3f}')
 
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+timeseries = dat['n']
+fig = plt.figure(figsize=(10, 15))
+ax1 = fig.add_subplot(511)
+fig = plot_acf(timeseries, ax=ax1,
+               title="Autocorrelation on Original Series") 
+ax2 = fig.add_subplot(512)
+fig = plot_acf(timeseries.diff().dropna(), ax=ax2, 
+               title="1st Order Differencing")
+ax3 = fig.add_subplot(513)
+fig = plot_acf(timeseries.diff().diff().dropna(), ax=ax3, 
+               title="2nd Order Differencing")
+ax4 = fig.add_subplot(514)
+fig = plot_acf(timeseries.diff().diff().diff().dropna(), ax=ax4, 
+               title="3rd Order Differencing")
+ax5 = fig.add_subplot(515)
+fig = plot_acf(timeseries.diff().diff().diff().dropna(), ax=ax5, 
+               title="4th Order Differencing")
+fig.show()
+plt.close()
+
+fig = plot_pacf(timeseries.diff().dropna(), lags=40)
+fig.show()
+plt.close()
+
+# maybe this says 3rd order?
+
 # let's run some models and compare the AC
 arma_mod10 = sm.tsa.ARMA(train['n'].values, (1, 0)).fit(disp=False)
 arma_mod20 = sm.tsa.ARMA(train['n'].values, (2, 0)).fit(disp=False)
@@ -113,10 +140,49 @@ data = np.c_[range(1,41), r[1:], q, p]
 table = pd.DataFrame(data, columns=['lag', "AC", "Q", "Prob(>Q)"])
 print(table.set_index('lag'))
 
-# predictions?
-pred = arma_mod100.predict(47000, 100000, dynamic=True)
+# Here's an approach using pmdarima
+import pmdarima as pm
 
-fig, ax = plt.subplots(figsize=(12, 8))
-ax = train.loc['2019-06-01 00:00:00':]['n'].plot(ax=ax)
-fig = arma_mod100.plot_predict(pd.to_datetime('2019-08-01'), pd.to_datetime('2020-01-20'),
-                               dynamic=True, ax=ax, plot_insample=False)
+def arimamodel(timeseries):
+    automodel = pm.auto_arima(timeseries, 
+                              start_p=1, 
+                              start_q=1,
+                              test="adf",
+                              seasonal=False,
+                              trace=True)
+    return automodel
+
+def plotarima(n_periods, timeseries, automodel, futureseries=None):
+    # Forecast
+    fc, confint = automodel.predict(n_periods=n_periods, 
+                                    return_conf_int=True)
+    # Weekly index
+    fc_ind = pd.date_range(timeseries.index[timeseries.shape[0]-1], 
+                           periods=n_periods, freq="W")
+    # Forecast series
+    fc_series = pd.Series(fc, index=fc_ind)    # Upper and lower confidence bounds
+    lower_series = pd.Series(confint[:, 0], index=fc_ind)
+    upper_series = pd.Series(confint[:, 1], index=fc_ind)    # Create plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(timeseries)
+    if futureseries is not None:
+        plt.plot(futureseries, color="orange")
+    plt.plot(fc_series, color="red")
+    plt.xlabel("date")
+    plt.ylabel(timeseries.name)
+    plt.fill_between(lower_series.index, 
+                     lower_series, 
+                     upper_series, 
+                     color="k", 
+                     alpha=0.25)
+    if futureseries is None:
+        plt.legend(("past", "forecast", "95% confidence interval"),  
+                   loc="upper left")
+    else:
+        plt.legend(("past", "real", "forecast", "95% confidence interval"),  
+                   loc="upper left")
+    plt.show()
+
+automodel = arimamodel(train['n'])
+plotarima(20, train['n'], automodel, test['n'])
+plt.close()
