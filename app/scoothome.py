@@ -74,12 +74,16 @@ def get_predictions(area, pg, t):
     t = t - datetime.timedelta(minutes=30)
     res = tsResults(pg, area, t)
     scooters = res.fetch_scooters('n')
-    used_scooters = res.fetch_scooters('in_use')
-    used_scooters.columns = map(lambda x: re.sub(r'^', 'in_use_', x),
-                                used_scooters.columns)
-    scooters = pd.merge(scooters, used_scooters, how='left', left_on='ds', right_on='in_use_ds')
-    scooters.sort_values('ds', inplace=True)
-    return scooters
+    if scooters.shape[0] > 0:
+        used_scooters = res.fetch_scooters('in_use')
+        used_scooters.columns = map(lambda x: re.sub(r'^', 'in_use_', x),
+                                    used_scooters.columns)
+        if used_scooters.shape[0] > 0:
+            scooters = pd.merge(scooters, used_scooters, how='left', left_on='ds', right_on='in_use_ds')
+        scooters.sort_values('ds', inplace=True)
+        return scooters
+    else:
+        return None
     
 
 def format_time(t):
@@ -113,14 +117,16 @@ def results():
             return reload_after_error("Whoops, looks like that location isn't in Austin! Please try again.")
         rounded_t = datetime.datetime(t.year, t.month, t.day, round(float(t.hour)))
         model_pred = get_predictions(area, pg, rounded_t)
+        if model_pred is None:
+            return reload_after_error("Hmm, looks like we don't have much data on that address. That probably means there won't be any scooters in the area. Please try another location.")
         total_estimates = []
         for i in range(6):
             total_estimates.append({'time': format_time(model_pred.iloc[i, 0]),
                                     'N': format_scoot_num(model_pred.iloc[i, 1]),
                                     'In Use': format_scoot_num(model_pred['in_use_yhat'][i])})
 
-        lat = location[0]
-        lon = location[1]
+        lat = np.round(location[0], decimals=14)
+        lon = np.round(location[1], decimals=14)
         bbox_1 = lon - 0.0036
         bbox_2 = lat - 0.0036
         bbox_3 = lon + 0.0036
