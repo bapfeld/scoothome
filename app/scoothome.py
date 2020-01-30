@@ -67,7 +67,15 @@ def reload_after_error(error):
     return render_template('index.html', now=now, error=error)
 
 def get_predictions(area, pg, t):
-    m = tsResults(pg, area, t)
+    t = t - datetime.timedelta(minutes=30)
+    res = tsResults(pg, area, t)
+    scooters = res.fetch_scooters('n')
+    used_scooters = res.fetch_scooters('in_use')
+    used_scooters.columns = map(lambda x: re.sub(r'^', 'in_use_', x),
+                                used_scooters.columns)
+    scooters = pd.merge(scooters, used_scooters, how='left', on='ds')
+    return scooters
+    
     
 
 # Define routes
@@ -92,14 +100,12 @@ def results():
         area = loc_to_area(location)
         if area is None:
             return reload_after_error("Whoops, looks like that location isn't in Austin! Please try again.")
-        model_pred = get_prediction(area, pg, ds_key, location[0], location[1], s_path)
-
         rounded_t = datetime.datetime(t.year, t.month, t.day, round(float(t.hour)))
-
-        time_row = pred.index[pred['ds'] == rounded_t].tolist()[0]
-        estimates = []
-        for i in range(time_row - 4, min([time_row + 4, pred.shape[0]])):
-            estimates.append({'time': pred.iloc[i, 0], 'N': max([pred.iloc[i, 1], 0])})
+        model_pred = get_prediction(area, pg, rounded_t)
+        total_estimates = []
+        for i in range(6):
+            total_estimates.append({'time': pred.iloc[i, 0], 'N': max([pred.iloc[i, 1], 0]),
+                                    'In Use': max([0, pred['in_use_yhat'][i]])})
 
         lat = location[0]
         lon = location[1]
