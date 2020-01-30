@@ -102,6 +102,8 @@ class tsModel():
     def prep_model_data(self):
         if self.include_weather:
             self.dat = pd.merge(self.area_series, self.weather, how='right', on='time')
+        else:
+            self.dat = self.area_series
         self.dat.fillna(0, inplace=True)
         if self.bin_window != '15T':
             self.dat.drop(columns=['district', 'tract'], inplace=True)
@@ -150,11 +152,17 @@ class tsModel():
     def train_model(self):
         self.model.fit(self.dat)
 
+    def calculate_periods(self):
+        max_d = self.area_series['time'].max()
+        two_weeks = datetime.datetime.now() + datetime.timedelta(weeks=2)
+        t_diff = two_weeks - max_d
+        return t_diff.total_seconds() / 3600 * 4
+
     def build_prediction_df(self, lat = 30.267151, lon = -97.743057, periods=192):
-        future = self.model.make_future_dataframe(periods=periods, freq='15T')
+        self.future = self.model.make_future_dataframe(periods=periods, freq='15T')
         if self.include_weather:
             self.get_weather_pred(lat, lon)
-            self.future = pd.merge(future, self.weather, how='left', left_on='ds', right_on='time')
+            self.future = pd.merge(self.future, self.weather, how='left', left_on='ds', right_on='time')
             self.future.update(self.future_weather)
 
     def get_weather_pred(self, lat, lon):
@@ -192,10 +200,12 @@ class tsModel():
         self.fcst = self.model.predict(self.future)
 
     def preds_to_sql(self, var):
-        fcst_out = self.fcst.copy()
+        fcst_out = self.fcst[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].copy()
         fcst_out.columns = map(lambda x: x.lower(), fcst_out.columns)
         fcst_out['area'] = self.idx
         fcst_out['var'] = var
+        time_cutoff = pd.to_datetime(datetime.datetime.today() - datetime.timedelta(days=1))
+        fcst_out = fcst_out[fcst_out['ds'] >= time_cutoff]
         fcst_out.to_sql('predictions', self.engine, if_exists='append', index=False)
 
     def query_preds(self, time_stamp):
