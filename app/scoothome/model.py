@@ -156,7 +156,7 @@ class tsModel():
         max_d = self.area_series['ds'].max()
         two_weeks = datetime.datetime.now() + datetime.timedelta(weeks=2)
         t_diff = two_weeks - max_d
-        return t_diff.total_seconds() / 3600 * 4
+        return int(t_diff.total_seconds() / 3600 * 4)
 
     def build_prediction_df(self, lat = 30.267151, lon = -97.743057, periods=192):
         self.future = self.model.make_future_dataframe(periods=periods, freq='15T')
