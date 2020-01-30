@@ -45,7 +45,7 @@ def import_secrets(ini_path):
 
 ini_path = '/home/bapfeld/scoothome/setup.ini'
 pg = import_secrets(ini_path)
-test_area = '9.0-48453001100'
+test_area = '1.0-48453000804'
 
 m = tsFetch(pg)
 m.get_area_series(test_area)
@@ -61,7 +61,8 @@ test.set_index('time', inplace=True)
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12,8))
 sm.graphics.tsa.plot_acf(train['n'].values.squeeze(), lags=300, ax=ax1)
 sm.graphics.tsa.plot_pacf(train['n'], lags=40, ax=ax2)
-plt.show()
+# plt.show()
+plt.savefig('/home/bapfeld/scoothome/figures/acf_pacf.jpg')
 plt.close()
 
 # this is just the first flavor of adf test...can also set the regression parameter
@@ -86,60 +87,6 @@ print('Critical Values:')
 for key, value in adf_results[4].items():
     print(f'\t{key}: {value:.3f}')
 
-from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
-timeseries = dat['n']
-fig = plt.figure(figsize=(10, 15))
-ax1 = fig.add_subplot(511)
-fig = plot_acf(timeseries, ax=ax1,
-               title="Autocorrelation on Original Series") 
-ax2 = fig.add_subplot(512)
-fig = plot_acf(timeseries.diff().dropna(), ax=ax2, 
-               title="1st Order Differencing")
-ax3 = fig.add_subplot(513)
-fig = plot_acf(timeseries.diff().diff().dropna(), ax=ax3, 
-               title="2nd Order Differencing")
-ax4 = fig.add_subplot(514)
-fig = plot_acf(timeseries.diff().diff().diff().dropna(), ax=ax4, 
-               title="3rd Order Differencing")
-ax5 = fig.add_subplot(515)
-fig = plot_acf(timeseries.diff().diff().diff().dropna(), ax=ax5, 
-               title="4th Order Differencing")
-fig.show()
-plt.close()
-
-fig = plot_pacf(timeseries.diff().dropna(), lags=40)
-fig.show()
-plt.close()
-
-# maybe this says 3rd order?
-
-# let's run some models and compare the AC
-arma_mod10 = sm.tsa.ARMA(train['n'].values, (1, 0)).fit(disp=False)
-arma_mod20 = sm.tsa.ARMA(train['n'].values, (2, 0)).fit(disp=False)
-arma_mod30 = sm.tsa.ARMA(train['n'].values, (3, 0)).fit(disp=False)
-arma_mod40 = sm.tsa.ARMA(train['n'], (4, 0)).fit(disp=False)
-arma_mod50 = sm.tsa.ARMA(train['n'].values, (5, 0)).fit(disp=False)
-arma_mod100 = sm.tsa.ARMA(train['n'].values, (10, 0)).fit(disp=False)
-# arma_mod11 = sm.tsa.ARMA(train['n'].values, (1, 1)).fit(disp=False)
-# arma_mod21 = sm.tsa.ARMA(train['n'].values, (2, 1)).fit(disp=False)
-
-print(arma_mod10.aic, arma_mod20.aic, arma_mod30.aic, arma_mod40.aic, arma_mod50.aic, arma_mod100.aic)
-
-# arma_mod31 = sm.tsa.ARMA(train['n'].values, (3, 1)).fit(disp=False)
-# print(arma_mod31.aic)
-
-# arma_mod22 = sm.tsa.ARMA(train['n'].values, (2, 2)).fit(disp=False)
-# print(arma_mod22.aic)
-
-# arma_21 appears to be best
-print(arma_mod100.params)
-sm.stats.durbin_watson(arma_mod100.resid)
-
-r, q, p = sm.tsa.acf(arma_mod100.resid.squeeze(), fft=True, qstat=True)
-data = np.c_[range(1,41), r[1:], q, p]
-table = pd.DataFrame(data, columns=['lag', "AC", "Q", "Prob(>Q)"])
-print(table.set_index('lag'))
-
 # Here's an approach using pmdarima
 import pmdarima as pm
 
@@ -152,7 +99,7 @@ def arimamodel(timeseries):
                               trace=True)
     return automodel
 
-def plotarima(n_periods, timeseries, automodel, futureseries=None):
+def plotarima(n_periods, timeseries, automodel, futureseries=None, show=True, file_out=None):
     # Forecast
     fc, confint = automodel.predict(n_periods=n_periods, 
                                     return_conf_int=True)
@@ -170,6 +117,7 @@ def plotarima(n_periods, timeseries, automodel, futureseries=None):
     plt.plot(fc_series, color="red")
     plt.xlabel("date")
     plt.ylabel(timeseries.name)
+    plt.title(f"ARIMA {automodel.order}")
     plt.fill_between(lower_series.index, 
                      lower_series, 
                      upper_series, 
@@ -181,8 +129,15 @@ def plotarima(n_periods, timeseries, automodel, futureseries=None):
     else:
         plt.legend(("past", "real", "forecast", "95% confidence interval"),  
                    loc="upper left")
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        if file_out is not None:
+            plt.savefig(file_out)
+        else:
+            print("Either set show to True or provide a file_out path to save the figure.")
 
 automodel = arimamodel(train['n'])
 plotarima(20, train['n'], automodel, test['n'])
 plt.close()
+plotarima(20, train['n'], automodel, test['n'], show=False, file_out='/home/bapfeld/scoothome/figures/arima_preds.jpg')

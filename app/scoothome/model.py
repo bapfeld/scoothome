@@ -204,6 +204,7 @@ class tsModel():
         fcst_out.columns = map(lambda x: x.lower(), fcst_out.columns)
         fcst_out['area'] = self.idx
         fcst_out['var'] = var
+        fcst_out['modified_date'] = pd.to_datetime(datetime.datetime.today().strftime("%Y-%m-%d"))
         time_cutoff = pd.to_datetime(datetime.datetime.today() - datetime.timedelta(days=1))
         fcst_out = fcst_out[fcst_out['ds'] >= time_cutoff]
         fcst_out.to_sql('predictions', self.engine, if_exists='append', index=False)
@@ -221,7 +222,7 @@ class tsModel():
         self.fig = self.model.plot(self.fcst)
         #fig.savefig(outflow)
 
-    def cv(self, initial, period, horizon, log):
+    def cv(self, initial, period, horizon, log=False):
         self.df_cv = cross_validation(self.model, initial=initial, period=period, horizon=horizon)
         if log:
             self.df_cv = self.df_cv.apply(lambda x: np.exp(x) if x.name not in ['ds', 'cutoff'] else x)
