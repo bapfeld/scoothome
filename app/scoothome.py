@@ -93,7 +93,7 @@ def get_predictions(area, pg, t, transpo='scooter'):
                                     used_scooters.columns)
         if used_scooters.shape[0] > 0:
             scooters = pd.merge(scooters, used_scooters, how='left', left_on='ds', right_on='in_use_ds')
-        scooters.sort_values('ds', inplace=True)
+        scooters.sort_values('ds').reset_index(inplace=True)
         return scooters
     else:
         return None
@@ -149,7 +149,8 @@ def details():
     if request.method == 'POST':
         area = request.form.get('area')
         rounded_t = dateparser.parse(request.form.get('rounded_t'))
-        model_pred = get_predictions(area, pg, rounded_t)
+        vehicle_type = request.form.get('vehicle_type').lower()[:-1]
+        model_pred = get_predictions(area, pg, rounded_t, vehicle_type)
         full_estimates = []
         for i in range(5):
             full_estimates.append(make_detailed_dict(model_pred['ds'][i],
@@ -159,10 +160,13 @@ def details():
                                                      model_pred['in_use_yhat'][i],
                                                      model_pred['in_use_yhat_lower'][i],
                                                      model_pred['in_use_yhat_upper'][i]))
+        vehicle_type = vehicle_type.title() + 's'
         return render_template('details.html',
                                location=request.form.get('location'),
                                time=request.form.get('time'),
-                               estimates=full_estimates)
+                               estimates=full_estimates,
+                               vehicle_type=vehicle_type,
+                               test_val=request.form.get('rounded_t'))
 
 @app.route('/results', methods=['POST'])
 def results():
@@ -205,6 +209,7 @@ def results():
         bbox_3 = lon + 0.0036
         bbox_4 = lat + 0.0036
         map_url = f"https://www.openstreetmap.org/export/embed.html?bbox={bbox_1}%2C{bbox_2}%2C{bbox_3}%2C{bbox_4}&amp;layer=mapnik&amp;marker={lat}%2C{lon}"
+        vehicle_type = request.form.get('transpoType').title() + 's'
 
     return render_template('results.html',
                            location=input_location.title(),
@@ -215,7 +220,8 @@ def results():
                            map_url=map_url,
                            accessToken=map_pub_token,
                            raw_time=rounded_t,
-                           area=area)
+                           area=area,
+                           vehicle_type=vehicle_type)
 
 if __name__ == "__main__":
     args = initialize_params()
