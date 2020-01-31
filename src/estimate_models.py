@@ -52,7 +52,10 @@ def initialize_params():
 def generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type):
     m = tsModel(pg, ds_key, bin_window, include_weather=False)
     m.get_area_series(area, series=vehicle_type)
-    m.transform_area_series(select_var='n')
+    if vehicle_type == 'scooter':
+        m.transform_area_series(select_var='n')
+    else:
+        m.transform_area_series(select_var='bike_n')
     m.prep_model_data()
     if m.dat.shape[0] > 9:
         m.build_model(scale=cps, hourly=True, holidays_scale=hs)
@@ -61,9 +64,15 @@ def generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type):
         m.build_prediction_df(periods=n_periods)
         m.future.dropna(inplace=True)
         m.predict()
-        m.preds_to_sql(var='n')
+        if vehicle_type == 'scooter':
+            m.preds_to_sql(var='n')
+        else:
+            m.preds_to_sql(var='bike_n')
     m.get_area_series(area, series=vehicle_type)
-    m.transform_area_series(select_var='in_use')
+    if vehicle_type == 'scooter':
+        m.transform_area_series(select_var='in_use')
+    else:
+        m.transform_area_series(select_var='bike_in_use')
     m.prep_model_data()
     if m.dat.shape[0] > 9:
         m.build_model(scale=cps, hourly=True, holidays_scale=hs)
@@ -72,7 +81,10 @@ def generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type):
         m.build_prediction_df(periods=n_periods)
         m.future.dropna(inplace=True)
         m.predict()
-        m.preds_to_sql(var='in_use')
+        if vehicle_type == 'scooter':
+            m.preds_to_sql(var='in_use')
+        else:
+            m.preds_to_sql(var='bike_in_use')
 
 def main():
     args = initialize_params()
