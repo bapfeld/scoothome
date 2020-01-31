@@ -117,7 +117,7 @@ def make_table_dict(t, n, used):
     d['available'] = d['N'] - d['used']
     return d
 
-def make_detailed_dict(n, n_low, n_high, used, used_low, used_high):
+def make_detailed_dict(t, n, n_low, n_high, used, used_low, used_high):
     d = dict()
     d['time'] = format_time(t)
     d['n'] = format_scoot_num(n)
@@ -129,6 +129,8 @@ def make_detailed_dict(n, n_low, n_high, used, used_low, used_high):
     d['n_high'] = format_scoot_num(n_high)
     d['used_high'] = min([d['n_high'], format_scoot_num(used_high)])
     d['free_high'] = d['n_high'] - d['used_high']
+    d['best_case'] = max([0, d['n_high'] - d['used_low']])
+    d['worst_case'] = max([0, d['n_low'] - d['used_high']])
     return d
 
 # Define routes
@@ -141,7 +143,7 @@ def index():
 def details():
     if request.method == 'POST':
         area = request.form.get('area')
-        rounded_t = request.form.get('rounded_t')
+        rounded_t = dateparser.parse(request.form.get('rounded_t'))
         model_pred = get_predictions(area, pg, rounded_t)
         full_estimates = []
         for i in range(5):

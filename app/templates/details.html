@@ -39,21 +39,22 @@
                 <!-- Left column with table -->
                 <div class="col">
                     <table class="table table-hover">
-                        <tr><th>Time</th><th>Estimate Low</th><th>Estimate</th><th>Estimate High</th><th>Estimate Free Low</th><th>Estimate Free</th><th>Estimate Free High</th></tr>
+                        <tr><th>Time</th><th>Low</th><th>Estimate</th><th>High</th><th>Free Low</th><th>Free</th><th>Free High</th><th><a class="strong">Best Case Scenario</a></th><th><a class="strong"> Worst Case Scenario</a></th></tr>
                         {% for time in estimates %}
-                        <tr><td>{{ time['time'] }}</td><td>{{ time['n_low']}}</td><td>{{ time['n'] }}</td><td>{{ time['n_high'] }}</td><td>{{ time['free_low']}}</td><td>{{ time['free'] }}</td><td>{{ time['free_high'] }}</td></tr>
+                        <tr><td>{{ time['time'] }}</td><td>{{ time['n_low']}}</td><td>{{ time['n'] }}</td><td>{{ time['n_high'] }}</td><td>{{ time['free_low']}}</td><td>{{ time['free'] }}</td><td>{{ time['free_high'] }}</td><td>{{ time['best_case'] }}</td><td>{{ time['worst_case'] }}</td></tr>
                         {% endfor %}
                     </table>
                     <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
                     <script src="static/js/bootstrap.min.js"></script>
                     
                 </div>
-                <!-- Right column with fig -->
-                <div class="col">
-                    <h5> Scooter Forecast </h5>
-                    
-                </div>
             </div>
+            <div class="row">
+                <div class="col text-center">
+                    <a class="mt-3 mb-1 btn btn-success btn-rounded" href="/" role="button"> Return Home </a>
+                </div>    
+            </div>
+            
             <footer class="page-footer font-small">
                 <div class="text-dark container col-9">
                     <div class="row">
