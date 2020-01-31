@@ -187,7 +187,8 @@ def results():
         area = loc_to_area(location)
         if area is None:
             return reload_after_error("Whoops, looks like that location isn't in Austin! Please try again.")
-        rounded_t = datetime.datetime(t.year, t.month, t.day, round(float(t.hour)))
+        rounded_t = datetime.datetime(t.year, t.month, t.day, t.hour,
+                            15*round((float(t.minute) + float(t.second) / 60) // 15))
         if request.form.get('transpoType') == 'scooter':
             model_pred = get_predictions(area, pg, rounded_t)
         else:
