@@ -2,7 +2,10 @@ import pandas as pd
 import numpy as np
 import os, argparse, configparser, re, logging, time
 import psycopg2
+from sqlalchemy import create_engine
+from sqlalchemy_utils import database_exists, create_database
 from collections import Counter
+from multiprocessing import Process
 
 def create_db(username, password, host, port, db_name):
     engine = create_engine(f'postgresql://{username}:{password}@{host}:{port}/{db_name}')
@@ -69,13 +72,59 @@ class ts_maker():
     """
     def __init__(self, dat):
         self.dat = dat
-        self.ts_list = []
-        self.ts_inuse = []
+        self.areas = set(list(pd.unique(self.dat['location_start_id'])) +
+                         list(pd.unique(self.dat['location_end_id'])))
+        self.init_ts_list()
+        # self.init_ts_df()
+        self.travel_totals = pd.DataFrame()
+        self.sql_init = False
+        
+    def sql_setup(self, pg):
+        self.pg_username = pg['username']
+        self.pg_password = pg['password']
+        self.pg_host = pg['localhost']
+        self.pg_db = pg['database']
+        self.pg_port = pg['port']
+        self.engine = create_engine(f'postgresql://{self.pg_username}:{self.pg_password}@{self.pg_host}:{self.pg_port}/{self.pg_db}')
+
+    def sql_create(self, replace_ts_table=False):
+        if replace_ts_table:
+            self.ts.tosql('ts', self.engine, if_exists='replace', chunksize=20000)
+        else:
+            try:
+                self.ts.to_sql('ts', self.engine, if_exists='fail', chunksize=20000)
+            except ValueError:
+                pass
+
+    def write_to_sql(self):
+        ts_out = self.ts[self.ts.n != 0].copy().reset_index()
+        with psycopg2.connect(dbname=self.pg_db,
+                              user=self.pg_username,
+                              password=self.pg_password,
+                              host=self.pg_host,
+                              port=self.pg_port) as conn:
+            with conn.cursor() as curs:
+                curs.executemany("""UPDATE ts SET n = n+%s WHERE (time = %s AND area = %s)""",
+                                 zip(ts_out.n, ts_out.time, ts_out.area))
+                conn.commit()
 
     def ts_list_to_txt(self, out_dir, num):
         fp = os.path.expanduser(out_dir) + "/" + num + '.txt'
         with open(fp, 'w') as outfile:
             outfile.writelines(x + '\n' for x in self.ts_list)
+
+
+    def init_ts_df(self):
+        time_stamps = pd.date_range(self.dat.start_time.min(),
+                                    self.dat.end_time.max(),
+                                    freq="15min")
+        self.ts = pd.DataFrame(np.zeros(len(time_stamps) * len(self.areas), dtype=int),
+                          index=pd.MultiIndex.from_product([self.areas, time_stamps],
+                                                           names=['area', 'time']),
+                          columns=['n'])
+
+    def init_ts_list(self):
+        self.ts_list = []
 
     def add_vehicle(self, tmp, i, arbitrary=None):
         if arbitrary is None:
@@ -89,11 +138,16 @@ class ts_maker():
                                                     freq="15min")))
         else:
             time_span = arbitrary
+        # add one vehicle to area for that time
+        # self.ts.loc[pd.IndexSlice[tmp.iloc[i, 5], time_span], 'n'] += 1
         new_list = [tmp.iloc[i, 5] + '--' + x for x in time_span]
         self.ts_list.extend(new_list)
 
     def where_am_i(self, idx):
         tmp = self.dat[self.dat.device_id == idx].copy()
+        travel = tmp.groupby('date').sum()
+        travel['device_id'] = idx
+        self.travel_totals = pd.concat([self.travel_totals, travel])
         tmp.drop_duplicates(subset=['start_time'], keep='first', inplace=True)
         tmp.reset_index(drop=True, inplace=True)
         # final trip has to be ignored
@@ -155,83 +209,83 @@ class ts_maker():
                     print(n)
             self.where_am_i(idx)
 
-def look_back(v_id, v_id_prev, start_time, end_time, end_time_prev):
-    if v_id == v_id_prev:
-        if area == area_prev:
-            if start_time == end_time_prev:
-                return 0
-            else:
-                t = start_time - end_time_prev
-                if t.total_seconds() > 86400:
-                    return 8
-            
 
-def look_ahead(v_id, v_id_next, area, area_next,
-               start_time, end_time, start_time_next):
-    # start by calculating the number of 15 minute blocks the vehicle was actually used
-    per = end_time - start_time
-    per = ((per.total_seconds()) / 60) // 15 + 1
-    if v_id == v_id_next:
-        # same vehicle
-        if area == area_next:
-            # area is the same
-            # does it sit idle?
-            if end_time != start_time_next:
-                t = start_time_next - end_time
-                if t.total_seconds() >= 86400:
-                    # long idle we say it sat around a little and then was charged
-                    return per + 48
-                else:
-                    new_t = ((t.total_seconds() / 60)) // 15
-                    return per + new_t
-            else:
-                return per
-        else:
-            # area is different
-            return per
+def multi_single_id(idx_list, dat, out_dir):
+    for i in idx_list:
+        tsm = ts_maker(dat)
+        tsm.where_am_i(i)
+        tsm.ts_list_to_txt(out_dir, i)
+
+def split_dat(dat):
+    id_list = pd.unique(dat['device_id'])
+    if len(id_list) > 5000:
+        ids = np.array_split(id_list, len(id_list) // 5000)
     else:
-        # different vehicle
-        pass
+        ids = [id_list]
+    return [dat[dat.device_id.isin(x)].copy().reset_index(drop=True) for x in ids]
 
 def main(dat_path,
          dat_out,
          vehicle_type,
+         report,
+         multi,
+         multi_out,
+         continue_process,
          pg):
-    conn = psycopg2.connect(database=pg['database'],
-                            user=pg['username'],
-                            password=pg['password'],
-                            port=pg['port'],
-                            host=pg['host'])
-    q = f"SELECT * FROM rides WHERE vehicle_type = '{vehicle_type}'"
-    dat = pg.read_sql_query(q, conn)
+    if pg is not None:
+        create_db(pg['username'], pg['password'], 'localhost', pg['port'], pg['database'])
+    dat = pd.read_csv(os.path.expanduser(dat_path),
+                  dtype={'Census Tract Start': object, 'Census Tract End': object})
+    dat = clean_df(dat, vehicle_type)
 
-    # minor df cleaning
-    dat.drop(columns=['trip_id', 'modified_date', 'month',
-                      'hour', 'day_of_week', 'year'], inplace=True)
-    dat = dat.apply(lambda x: pd.to_datetime(x) if x.name in ['start_time', 'end_time'] else x)
-    dat.sort_values(['device_id', 'start_time', 'council_district_start',
-                     'census_tract_start'], inplace=True)
+    if not multi:
+        tsm = ts_maker(dat)
+        tsm.process_devices(report)
 
-    # generate lead and lag values
-    dat_lead = pd.shift(dat, -1)
-    dat_lead.columns = map(lambda x: re.sub(r'$', '_lead', x), dat_lead.columns)
-    dat_lag = pd.shift(dat, 1)
-    dat_lag.columns = map(lambda x: re.sub(r'$', '_lag', x), dat_lag.columns)
-    dat = pd.concat([dat, dat_lead, dat_lag], axis=1)
+        # generate the list of place-times that exist
+        places_exist = set(tsm.ts_list)
 
-    dat['neg_periods'] = dat.apply(lambda row: look_back(row), axis=1)
-    dat['pos_periods'] = dat.apply(lambda row: look_ahead(row['vehicle_id'].values,
-                                                          row['vehicle_id_lead'].values,
-                                                          row['area'].values,
-                                                          row['area_lead'].values,
-                                                          row['start_time'].values,
-                                                          row['end_time'].values,
-                                                          row['start_time_lead'].values),
-                                   axis=1)
+        # and generate the full list
+        tsm.init_ts_df()
+        tsm.ts.reset_index(inplace=True)
+        tsm.ts['full_index'] = tsm.ts['area'] + '--' + tsm.ts['time'].astype(str)
+        full_places = set(tsm.ts['full_index'])
 
+        # and find the difference
+        missing_places = full_places - places_exist
 
-    # Write the result
-    # complete_df.to_csv(dat_out, columns=['area', 'time', 'n'], index=False)
+        # convert to dataframes
+        missing_df = pd.DataFrame.from_dict({k: 0 for k in missing_places},
+                                            orient='index',
+                                            columns=['n']).reset_index()
+
+        incomplete_df = pd.DataFrame.from_dict(Counter(tsm.ts_list),
+                                           orient='index',
+                                           columns=['n']).reset_index()
+
+        complete_df = pd.concat([incomplete_df, missing_df])
+
+        complete_df['area'] = complete_df['index'].str.extract(r'^(.*?)--')
+        complete_df['time'] = complete_df['index'].str.extract(r'--(.*?)$')
+
+        # Write the result
+        complete_df.to_csv(dat_out, columns=['area', 'time', 'n'], index=False)
+
+    else:
+        ids = pd.unique(dat['device_id'])
+        if continue_process:
+            existing_list = [x for x in os.listdir(multi_out) if x.endswith('txt')]
+            existing_list = [re.sub('\.txt$', '', x) for x in existing_list]
+            ids = list(set(ids) - set(existing_list))
+        n_cpu = os.cpu_count() - 1
+        id_list = np.array_split(ids, n_cpu)
+        processes = []
+        for i, idl in enumerate(id_list):
+            proc = Process(target=multi_single_id, args=(idl, dat, multi_out))
+            processes.append(proc)
+            proc.start()
+        for proc in processes:
+            proc.join()
 
 def initialize_params():
     parser = argparse.ArgumentParser()
@@ -246,24 +300,53 @@ def initialize_params():
         required=False,
     )
     parser.add_argument(
+            '--ini_path',
+            help="Path to the .ini file containing the app token",
+            required=False,
+        )
+    parser.add_argument(
             '--vehicle_type',
             help="Type of vehicle to use. Options are scooter or scooter. Defaults to scooter",
             default='scooter', 
         )
     parser.add_argument(
-        '--ini_path',
-        help="Path to the .ini file containing the app token",
+        '--report',
+        help="Frequency of reporting how many vehicle ids have been processed.",
         required=False,
+    )
+    parser.add_argument(
+        '--multi',
+        help="Should the code be run as a multi-threaded process? If so, then multi_out must also be specified.",
+        required=False,
+        action='store_true'
+    )
+    parser.add_argument(
+        '--multi_out',
+        help="Directory to where to store files from multi-threaded processes",
+        required=False,
+    )
+    parser.add_argument(
+        '--continue_process',
+        help="Should the processor pick up where it left off? Defaults to false.",
+        required=False,
+        action='store_true'
     )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
+    fmt = "%(asctime)s: %(message)s"
+    logging.basicConfig(format=fmt, level=logging.INFO, datefmt="%H:%M:%S")
     args = initialize_params()
-    config = configparser.ConfigParser()
-    config.read(ini_path)
-    pg = config['postgres']
+    if args.ini_path is not None:
+        pg = import_secrets(os.path.expanduser(args.ini_path))
+    else:
+        pg = None
     main(os.path.expanduser(args.dat_path),
          args.dat_out,
          args.vehicle_type,
+         args.report,
+         args.multi,
+         os.path.expanduser(args.multi_out),
+         args.continue_process, 
          pg)
