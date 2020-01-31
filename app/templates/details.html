@@ -25,7 +25,7 @@
                 integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
                 crossorigin=""></script>
         <!-- <link href="../static/cover.css" rel="stylesheet"> -->
-        <title>Results</title>
+        <title>Detailed Results</title>
     </head>
     <body>
         <!-- Page Content -->
@@ -39,63 +39,19 @@
                 <!-- Left column with table -->
                 <div class="col">
                     <table class="table table-hover">
-                        <tr><th>Time</th><th>Total Scooters in Area</th><th>Percent Available (%)</th><th>Num. Available</th></tr>
+                        <tr><th>Time</th><th>Estimate Low</th><th>Estimate</th><th>Estimate High</th><th>Estimate Free Low</th><th>Estimate Free</th><th>Estimate Free High</th></tr>
                         {% for time in estimates %}
-                        <tr><td>{{ time['time'] }}</td><td>{{ time['N']}}</td><td>{{ time['pct_avail'] }}</td><td>{{ time['available'] }}</td></tr>
+                        <tr><td>{{ time['time'] }}</td><td>{{ time['n_low']}}</td><td>{{ time['n'] }}</td><td>{{ time['n_high'] }}</td><td>{{ time['free_low']}}</td><td>{{ time['free'] }}</td><td>{{ time['free_high'] }}</td></tr>
                         {% endfor %}
                     </table>
                     <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
                     <script src="static/js/bootstrap.min.js"></script>
-                    <script>
-		     $(document).ready(function() {
-			 $('table td:nth-child(3)').each(function() {
-			     var pct = $(this).text();
-
-			     if ((pct >= 0) && (pct < 25)) {
-				 $(this).css('backgroundColor', '#f76e6e'); 
-			     }
-			     else if((pct >= 25) && (pct < 75)) {
-				 $(this).css('backgroundColor', '#edb949'); 
-			     }
-			     else {
-				 $(this).css('backgroundColor', '#99faa0'); 
-			     }
-			     });
-			     return false;	 
-		     });
-
-		    </script>
+                    
                 </div>
-                <!-- Right column with maps -->
+                <!-- Right column with fig -->
                 <div class="col">
-                    <h5> Where you're heading </h5>
-                    <div id="mapid" style="width: 600px; height: 300px;">
-                        <script>
-                         var mymap = L.map('mapid').setView([{{lat}}, {{lon}}], 17);
-                         var marker = L.marker([{{lat}}, {{lon}}]).addTo(mymap);
-                         L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={{accessToken}}', {
-                             attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, <a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
-                             maxZoom: 18,
-                             id: 'mapbox/streets-v11',
-                             accessToken: 'your.mapbox.access.token'
-                         }).addTo(mymap);
-                        </script>
-                    </div>
-                </div>
-            </div>
-            <div class="row">
-                <form action="{{ url_for('details') }}" method="POST" role="form">
-                    <div class="col text-center">
-                        <input type="hidden" name="location" value="{{location}}">
-                        <input type="hidden" name="time" value="{{time}}">
-                        <input type="hidden" name="area" value="{{area}}">
-                        <input type="hidden" name="rounded_t" value="{{rounded_t}}">
-                    </div>
-
-                    <button type="submit" class="mt-3 mb-1 btn btn-success btn-rounded">Detailed Forecast</button>
-                </form>
-                <div class="col text-center">
-                    <a class="mt-3 mb-1 btn btn-success btn-rounded" href="/" role="button"> Return Home </a>
+                    <h5> Scooter Forecast </h5>
+                    
                 </div>
             </div>
             <footer class="page-footer font-small">

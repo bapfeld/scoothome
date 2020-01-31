@@ -117,16 +117,45 @@ def make_table_dict(t, n, used):
     d['available'] = d['N'] - d['used']
     return d
 
+def make_detailed_dict(n, n_low, n_high, used, used_low, used_high):
+    d = dict()
+    d['time'] = format_time(t)
+    d['n'] = format_scoot_num(n)
+    d['used'] = min([d['n'], format_scoot_num(used)])
+    d['free'] = d['n'] - d['used']
+    d['n_low'] = format_scoot_num(n_low)
+    d['used_low'] = min([d['n'], format_scoot_num(used_low)])
+    d['free_low'] = d['n_low'] - d['used_low']
+    d['n_high'] = format_scoot_num(n_high)
+    d['used_high'] = min([d['n_high'], format_scoot_num(used_high)])
+    d['free_high'] = d['n_high'] - d['used_high']
+    return d
+
 # Define routes
 @app.route('/', methods=['GET'])
 def index():
     now = calc_nowish(pretty=True)
     return render_template('index.html', now=now)
 
-@app.route('/details', methods=['POST'])
+@app.route('/details', methods=['POST', 'GET'])
 def details():
     if request.method == 'POST':
-        pass
+        area = request.form.get('area')
+        rounded_t = request.form.get('rounded_t')
+        model_pred = get_predictions(area, pg, rounded_t)
+        full_estimates = []
+        for i in range(5):
+            full_estimates.append(make_detailed_dict(model_pred['ds'][i],
+                                                     model_pred['yhat'][i],
+                                                     model_pred['yhat_lower'][i],
+                                                     model_pred['yhat_upper'][i],
+                                                     model_pred['in_use_yhat'][i],
+                                                     model_pred['in_use_yhat_lower'][i],
+                                                     model_pred['in_use_yhat_upper'][i]))
+        return render_template('details.html',
+                               location=request.form.get('location'),
+                               time=request.form.get('time'),
+                               estimates=full_estimates)
 
 @app.route('/results', methods=['POST'])
 def results():
@@ -151,7 +180,7 @@ def results():
         if model_pred is None:
             return reload_after_error("Hmm, looks like we don't have much data on that address. That probably means there won't be any scooters in the area. Please try another location.")
         total_estimates = []
-        for i in range(6):
+        for i in range(5):
             total_estimates.append(make_table_dict(model_pred.iloc[i, 0],
                                                    model_pred.iloc[i, 1],
                                                    model_pred['in_use_yhat'][i]))
@@ -171,7 +200,9 @@ def results():
                            lat=lat,
                            lon=lon, 
                            map_url=map_url,
-                           accessToken=map_pub_token)
+                           accessToken=map_pub_token,
+                           raw_time=rounded_t,
+                           area=area)
 
 if __name__ == "__main__":
     args = initialize_params()
