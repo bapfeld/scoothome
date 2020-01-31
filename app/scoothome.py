@@ -35,11 +35,14 @@ def geocode_location(location):
     else:
         return (None, None)
 
-def calc_nowish():
+def calc_nowish(pretty=False):
     now = datetime.datetime.now() + datetime.timedelta(hours=3)
     now = datetime.datetime(now.year, now.month, now.day, now.hour,
                             15*round((float(now.minute) + float(now.second) / 60) // 15))
-    now = now.strftime("%m-%d-%Y %H:%M")
+    if pretty:
+        now = now.strftime("%b %d, %I:%M%p")
+    else:
+        now = now.strftime("%m-%d-%Y %H:%M")
     return now
 
 def loc_to_area(location):
@@ -71,7 +74,7 @@ def loc_to_area(location):
     return area
 
 def reload_after_error(error):
-    now = calc_nowish()
+    now = calc_nowish(pretty=True)
     return render_template('index.html', now=now, error=error)
 
 def get_predictions(area, pg, t):
@@ -100,7 +103,7 @@ def format_scoot_num(n):
 # Define routes
 @app.route('/', methods=['GET'])
 def index():
-    now = calc_nowish()
+    now = calc_nowish(pretty=True)
     return render_template('index.html', now=now)
 
 @app.route('/results', methods=['POST'])
