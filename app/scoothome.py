@@ -123,12 +123,19 @@ def index():
     now = calc_nowish(pretty=True)
     return render_template('index.html', now=now)
 
+@app.route('/details', methods=['POST'])
+def details():
+    if request.method == 'POST':
+        pass
+
 @app.route('/results', methods=['POST'])
 def results():
     if request.method == 'POST':
         input_location = request.form.get('destination')
         t = request.form.get('time')
         t = dateparser.parse(t)
+        if t is None:
+            return reload_after_error("Whoops, that's not a date we understand. Please try again.")
         if t < datetime.datetime.now():
             return reload_after_error("Whoops, looks like you chose a time that's already happened!")
         if t > datetime.datetime.now() + datetime.timedelta(hours=48):
