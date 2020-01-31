@@ -19,3 +19,4 @@ figures/estimation_by_area_jan.pdf
 figures/output.png
 figures/test_area_model_prediction.pdf
 src/test_in_use.py
+data/bike_records/*
