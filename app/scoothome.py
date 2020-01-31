@@ -77,12 +77,18 @@ def reload_after_error(error):
     now = calc_nowish(pretty=True)
     return render_template('index.html', now=now, error=error)
 
-def get_predictions(area, pg, t):
+def get_predictions(area, pg, t, transpo='scooter'):
     t = t - datetime.timedelta(minutes=30)
     res = tsResults(pg, area, t)
-    scooters = res.fetch_scooters('n')
+    if transpo == 'scooter':
+        scooters = res.fetch_scooters('n')
+    else:
+        scooters = res.fetch_scooters('bike_n')
     if scooters.shape[0] > 0:
-        used_scooters = res.fetch_scooters('in_use')
+        if transpo == 'scooter':
+            used_scooters = res.fetch_scooters('in_use')
+        else:
+            used_scooters = res.fetch_scooters('bike_in_use')
         used_scooters.columns = map(lambda x: re.sub(r'^', 'in_use_', x),
                                     used_scooters.columns)
         if used_scooters.shape[0] > 0:
@@ -91,7 +97,6 @@ def get_predictions(area, pg, t):
         return scooters
     else:
         return None
-    
 
 def format_time(t):
     return t.strftime("%I:%M")
@@ -178,9 +183,15 @@ def results():
         if area is None:
             return reload_after_error("Whoops, looks like that location isn't in Austin! Please try again.")
         rounded_t = datetime.datetime(t.year, t.month, t.day, round(float(t.hour)))
-        model_pred = get_predictions(area, pg, rounded_t)
+        if request.form.get('transpoType') == 'scooter':
+            model_pred = get_predictions(area, pg, rounded_t)
+        else:
+            model_pred = get_predictions(area, pg, rounded_t, transpo='bike')
         if model_pred is None:
-            return reload_after_error("Hmm, looks like we don't have much data on that address. That probably means there won't be any scooters in the area. Please try another location.")
+            if request.form.get('transpoType') == 'scooter':
+                return reload_after_error("Hmm, looks like we don't have much data on that address. That probably means there won't be any scooters in the area. Please try another location.")
+            else:
+                return reload_after_error("Hmm, looks like we don't have much data on that address. That probably means there won't be any bikes in the area. Please try another location.")
         total_estimates = []
         for i in range(5):
             total_estimates.append(make_table_dict(model_pred.iloc[i, 0],
