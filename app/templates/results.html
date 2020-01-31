@@ -39,9 +39,9 @@
                 <!-- Left column with table -->
                 <div class="col">
                     <table class="table table-hover">
-                        <tr><th>Time</th><th>Estimated Scooters in the Area</th><th>Estimated Scooters in Use</th></tr>
+                        <tr><th>Time</th><th>Total Scooters in Area</th><th>Percent Available (%)</th><th>Num. Available</th></tr>
                         {% for time in estimates %}
-                        <tr><td>{{ time['time'] }}</td><td>{{ time['N']}}</td><td>{{ time['In Use'] }}</td></tr>
+                        <tr><td>{{ time['time'] }}</td><td>{{ time['N']}}</td><td>{{ time['pct_avail'] }}</td><td>{{ time['available'] }}</td></tr>
                         {% endfor %}
                     </table>
                     <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>

@@ -100,6 +100,23 @@ def format_scoot_num(n):
     n = max([0, n])
     return int(np.round(n))
 
+def format_scoot_pct(n, in_use):
+    try:
+        pct = (n - in_use) / n
+    except ZeroDivisionError:
+        pct = 0
+    pct = np.round(pct * 100)
+    return pct
+
+def make_table_dict(t, n, used):
+    d = dict()
+    d['time'] = format_time(t)
+    d['N'] = format_scoot_num(n)
+    d['used'] = min([d['N'], format_scoot_num(used)])
+    d['pct_avail'] = format_scoot_pct(d['N'], d['used'])
+    d['available'] = d['N'] - d['used']
+    return d
+
 # Define routes
 @app.route('/', methods=['GET'])
 def index():
@@ -128,9 +145,9 @@ def results():
             return reload_after_error("Hmm, looks like we don't have much data on that address. That probably means there won't be any scooters in the area. Please try another location.")
         total_estimates = []
         for i in range(6):
-            total_estimates.append({'time': format_time(model_pred.iloc[i, 0]),
-                                    'N': format_scoot_num(model_pred.iloc[i, 1]),
-                                    'In Use': format_scoot_num(model_pred['in_use_yhat'][i])})
+            total_estimates.append(make_table_dict(model_pred.iloc[i, 0],
+                                                   model_pred.iloc[i, 1],
+                                                   model_pred['in_use_yhat'][i]))
 
         lat = np.round(location[0], decimals=14)
         lon = np.round(location[1], decimals=14)
