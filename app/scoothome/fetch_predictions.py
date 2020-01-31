@@ -27,7 +27,7 @@ class tsResults():
                               host=self.pg_host) as conn:
             preds = pd.read_sql(q, conn)
             if preds.shape[0] > 0:
-                preds.groupby('ds').mean()
+                preds = preds.groupby('ds').mean()
             return preds
 
     def fetch_bikes(self, var):

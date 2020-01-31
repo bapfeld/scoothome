@@ -92,8 +92,9 @@ def get_predictions(area, pg, t, transpo='scooter'):
         used_scooters.columns = map(lambda x: re.sub(r'^', 'in_use_', x),
                                     used_scooters.columns)
         if used_scooters.shape[0] > 0:
-            scooters = pd.merge(scooters, used_scooters, how='left', left_on='ds', right_on='in_use_ds')
-        scooters.sort_values('ds').reset_index(inplace=True)
+            scooters = pd.merge(scooters, used_scooters, how='left', left_index=True, right_index=True)
+        scooters.reset_index(inplace=True)
+        scooters.sort_values('ds', inplace=True)
         return scooters
     else:
         return None
