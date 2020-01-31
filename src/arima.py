@@ -53,6 +53,15 @@ m.get_area_series(test_area)
 dat = m.area_series.copy()
 dat.sort_values(['time'], inplace=True)
 
+# simple plot of the time series
+plot_dat = dat.copy().set_index('time')
+fig, ax = plt.subplots(figsize=(10, 8))
+plot_dat['n'].plot(color='blue')
+plot_dat['in_use'].plot(color='red')
+plt.legend(('Total', 'In Use'), loc='upper left')
+# fig.show()
+plt.savefig('/home/bapfeld/scoothome/figures/example_time_series.jpg')
+
 train = dat[dat['time'] < pd.to_datetime('2019-9-13')].copy()
 train.set_index('time', inplace=True)
 test = dat[dat['time'] >= pd.to_datetime('2019-9-13')].copy()
