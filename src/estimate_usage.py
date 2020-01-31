@@ -4,6 +4,7 @@ import psycopg2, configparser
 
 config = configparser.ConfigParser()
 config.read(ini_path)
+pg = config['postgres']
 pg_username = pg['username']
 pg_password = pg['password']
 pg_host = pg['host']
@@ -25,6 +26,8 @@ counts = pd.DataFrame.from_dict(Counter(dat['full_index']),
                                 columns=['in_use']).reset_index()
 counts['area'] = counts['index'].str.extract(r'^(.*?)--')
 counts['time'] = counts['index'].str.extract(r'--(.*?)$')
+counts['district'] = counts['area'].str.extract(r'^(.*?)-')
+counts['tract'] = counts['area'].str.extract(r'^.*-(.*)$')
 counts.drop(columns=['index'], inplace=True)
 counts['time'] = pd.to_datetime(counts['time'])
 
