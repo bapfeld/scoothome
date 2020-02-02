@@ -4,8 +4,7 @@ from wtforms import Form, TextField, TextAreaField, validators, StringField, Sub
 import datetime, re, requests
 import shapefile
 from shapely.geometry import Point, Polygon
-from scoothome.model import initialize_params
-from scoothome.fetch_predictions import tsResults
+from scoothome.fetch_predictions import tsResults, initialize_params
 import pandas as pd
 import numpy as np
 import configparser, argparse
