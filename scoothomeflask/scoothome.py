@@ -13,7 +13,7 @@ import os
 import psycopg2
 import dateparser
 
-app = Flask(__name__)
+# app = Flask(__name__)
 
 # Define functions
 def import_secrets(ini_path):
