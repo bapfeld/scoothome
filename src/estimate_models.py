@@ -98,8 +98,11 @@ def main():
         proc_num = int(args.proc_num)
     with open(os.path.expanduser(args.area_list_file), 'r') as f_in:
         area_list = [x.strip() for x in f_in.readlines()]
-    with open(os.path.expanduser(args.completed_area_file), 'r') as f_in:
-        completed_list = [x.strip() for x in f_in.readlines()]
+    if os.path.exists(os.path.expanduser(args.completed_area_file)):
+        with open(os.path.expanduser(args.completed_area_file), 'r') as f_in:
+            completed_list = [x.strip() for x in f_in.readlines()]
+    else:
+        completed_list = []
     if t_processes > 1:
         a_lists = np.array_split(area_list, t_processes)
         area_list = [x for x in a_lists[proc_num - 1] if x not in completed_list]
