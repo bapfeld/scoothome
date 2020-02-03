@@ -227,4 +227,5 @@ def results():
 if __name__ == "__main__":
     args = initialize_params()
     pg, ds_key, map_pub_token = import_secrets(os.path.expanduser(args.ini_path))
-    # app.run(host='0.0.0.0', debug=False)
+    app = Flask(__name__)
+    app.run(host='0.0.0.0', debug=False)
