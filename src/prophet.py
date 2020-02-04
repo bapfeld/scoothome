@@ -6,7 +6,7 @@ from darksky.api import DarkSky
 from darksky.types import languages, units, weather
 import sys
 sys.path.append('/home/bapfeld/scoothome')
-from app.scoothome.model import tsModel, import_secrets
+from src.model import tsModel, import_secrets
 import configparser
 
 
