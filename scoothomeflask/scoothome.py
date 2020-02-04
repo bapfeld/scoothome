@@ -51,7 +51,8 @@ def loc_to_area(location):
     tract = None
     district = None
     # get census tract
-    with shapefile.Reader('/home/bapfeld/scoothome/data/census_tracts/census_tracts') as shp:
+    census_path = os.path.expanduser('~/scoothome/data/census_tracts/census_tracts')
+    with shapefile.Reader(census_path) as shp:
         for i, rec in enumerate(shp.records()):
             if rec[1] == '453':
                 poly = Polygon(shp.shape(i).points)
@@ -59,7 +60,8 @@ def loc_to_area(location):
                     tract = str(shp.record(i)[3])
                     break            
     # get council district
-    with shapefile.Reader('/home/bapfeld/scoothome/data/council_districts/council_districts') as shp:
+    district_path = os.path.expanduser('~/scoothome/data/council_districts/council_districts')
+    with shapefile.Reader(district_path) as shp:
         for i, shape in enumerate(shp.shapes()):
             poly = Polygon(shape.points)
             if poly.contains(p_rev):
