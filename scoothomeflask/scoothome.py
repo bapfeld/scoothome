@@ -216,6 +216,8 @@ def results():
                            accessToken=map_pub_token,
                            raw_time=rounded_t,
                            area=area)
+args = initialize_params()
+pg, ds_key, map_pub_token = import_secrets(os.path.expanduser(args.ini_path))
 
 if __name__ == "__main__":
     args = initialize_params()
