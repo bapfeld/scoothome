@@ -1,6 +1,15 @@
 import pandas as pd
 import configparser, os, datetime, psycopg2
 
+def initialize_params():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--ini_path',
+        help="Path to the .ini file containing the app token",
+        required=False,
+    )
+    return parser.parse_args()
+
 class tsResults():
     """Class to query postgres database and return predictions
 
@@ -27,7 +36,7 @@ class tsResults():
                               host=self.pg_host) as conn:
             preds = pd.read_sql(q, conn)
             if preds.shape[0] > 0:
-                preds.groupby('ds').mean()
+                preds = preds.groupby('ds').mean()
             return preds
 
     def fetch_bikes(self, var):

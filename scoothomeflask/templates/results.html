@@ -32,7 +32,7 @@
         <div class="text-dark container col-9 mx-auto">
             <!-- Jumbotron Header -->
             <header class="jumbotron jumbotron-fluid my-0 p-4">
-                <h2 class="strong">Scooters near <span class="text-success">{{location}}</span> around <span class="text-success">{{time}}</span>: </h2><hr class="my-4">
+                <h2 class="strong">{{ vehicle_type }} near <span class="text-success">{{location}}</span> around <span class="text-success">{{time}}</span>: </h2><hr class="my-4">
             </header>
             <!-- Page Features -->
             <div class="row">
@@ -90,6 +90,7 @@
                         <input type="hidden" name="time" value="{{time}}">
                         <input type="hidden" name="area" value="{{area}}">
                         <input type="hidden" name="rounded_t" value="{{raw_time}}">
+                        <input type="hidden" name="vehicle_type" value="{{vehicle_type}}">
                     </div>
 
                     <button type="submit" class="mt-3 mb-1 btn btn-success btn-rounded">Detailed Forecast</button>

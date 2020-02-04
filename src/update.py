@@ -304,6 +304,12 @@ def initialize_params():
         help="Path to the .ini file containing the app token",
         required=False,
     )
+    parser.add_argument(
+        '--fetch_weather',
+        help="Should the updater fetch new weather history? Include flag to fetch.",
+        required=False,
+        action="store_true"
+    )
     return parser.parse_args()
     
 def main():
@@ -315,7 +321,8 @@ def main():
     upd.get_new_ride_data()
     if upd.new_rides is not None:
         upd.write_new_rides()
-    upd.get_new_weather_history()
+    if args.fetch_weather:
+        upd.get_new_weather_history()
     upd.new_rides_to_ts()
 
 
