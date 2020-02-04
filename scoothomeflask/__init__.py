@@ -1,7 +1,14 @@
 from flask import Flask
+import configparser
 app = Flask(__name__)
 
+# Define functions
+def import_secrets(ini_path):
+    config = configparser.ConfigParser()
+    config.read(ini_path)
+    return (config['postgres'], config['darksky']['key'], config['mapbox']['public_token'])
+
+
 from scoothomeflask import scoothome
-# from scoothomeflask.scoothome.fetch_predictions import initialize_params
-# args = initialize_params()
-# pg, ds_key, map_pub_token = import_secrets(os.path.expanduser(args.ini_path))
+ini_path = os.path.expanduser('~/scoothome/setup.ini')
+pg, ds_key, map_pub_token = import_secrets(ini_path)
