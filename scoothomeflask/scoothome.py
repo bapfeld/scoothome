@@ -226,8 +226,9 @@ def results():
                            raw_time=rounded_t,
                            area=area,
                            vehicle_type=vehicle_type)
-args = initialize_params()
-pg, ds_key, map_pub_token = import_secrets(os.path.expanduser(args.ini_path))
+
+ini_path = os.path.expanduser('~/scoothome/setup.ini')
+pg, ds_key, map_pub_token = import_secrets(ini_path)
 
 if __name__ == "__main__":
     args = initialize_params()
