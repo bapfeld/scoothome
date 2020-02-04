@@ -142,6 +142,10 @@ def make_detailed_dict(t, n, n_low, n_high, used, used_low, used_high):
     return d
 
 # Define routes
+@app.errorhandler(404)
+def page_not_found(error):
+    return 'This route does not exist {}'.format(request.url), 404
+
 @app.route('/', methods=['GET'])
 def index():
     now = calc_nowish(pretty=True)
