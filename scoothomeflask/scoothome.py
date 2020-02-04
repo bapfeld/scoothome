@@ -278,3 +278,4 @@ def results():
                            vehicle_type=vehicle_type)
 
 
+print('reached end of import scoothome file')
