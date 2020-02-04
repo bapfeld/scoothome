@@ -21,6 +21,9 @@ def import_secrets(ini_path):
     config.read(ini_path)
     return (config['postgres'], config['darksky']['key'], config['mapbox']['public_token'])
 
+ini_path = os.path.expanduser('~/scoothome/setup.ini')
+pg, ds_key, map_pub_token = import_secrets(ini_path)
+
 def geocode_location(location):
     query = re.sub(r'\s+', '\+', location)
     request = f'https://nominatim.openstreetmap.org/search?q={query}&format=json'
@@ -231,11 +234,4 @@ def results():
                            area=area,
                            vehicle_type=vehicle_type)
 
-ini_path = os.path.expanduser('~/scoothome/setup.ini')
-pg, ds_key, map_pub_token = import_secrets(ini_path)
 
-if __name__ == "__main__":
-    args = initialize_params()
-    pg, ds_key, map_pub_token = import_secrets(os.path.expanduser(args.ini_path))
-    app = Flask(__name__)
-    app.run(host='0.0.0.0', debug=False)
