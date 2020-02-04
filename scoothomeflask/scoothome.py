@@ -12,16 +12,15 @@ import psycopg2
 import dateparser
 from scoothomeflask import app
 
-# app = Flask(__name__)
+# Define functions
+def import_secrets(ini_path):
+    config = configparser.ConfigParser()
+    config.read(ini_path)
+    return (config['postgres'], config['darksky']['key'], config['mapbox']['public_token'])
 
-def initialize_params():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--ini_path',
-        help="Path to the .ini file containing the app token",
-        required=False,
-    )
-    return parser.parse_args()
+
+ini_path = os.path.expanduser('~/scoothome/setup.ini')
+pg, ds_key, map_pub_token = import_secrets(ini_path)
 
 class tsResults():
     """Class to query postgres database and return predictions
@@ -276,6 +275,3 @@ def results():
                            raw_time=rounded_t,
                            area=area,
                            vehicle_type=vehicle_type)
-
-
-print('reached end of import scoothome file')
