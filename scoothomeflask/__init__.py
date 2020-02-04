@@ -9,6 +9,6 @@ def import_secrets(ini_path):
     return (config['postgres'], config['darksky']['key'], config['mapbox']['public_token'])
 
 
-from scoothomeflask import scoothome
 ini_path = os.path.expanduser('~/scoothome/setup.ini')
 pg, ds_key, map_pub_token = import_secrets(ini_path)
+from scoothomeflask import scoothome
