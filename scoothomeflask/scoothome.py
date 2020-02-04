@@ -11,6 +11,7 @@ import configparser, argparse
 import os
 import psycopg2
 import dateparser
+from scoothomeflask import app
 
 # app = Flask(__name__)
 
