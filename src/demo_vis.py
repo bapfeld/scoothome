@@ -128,7 +128,10 @@ m.cv(initial='365 days', period='30 days', horizon='30 days', log=False)
 total_preds = m.fcst
 
 # generate and save figs here
-fig = fb_plot(m.model, m.fcst, xlabel='Time', ylabel='N Scooters', figsize=(15, 6))
+cutoff_date = pd.to_datetime('2018-05-15')
+pred_copy = m
+pred_copy.model.history = pred_copy.model.history[pred_copy.model.history['ds'] >= cutoff_date]
+fig = fb_plot(pred_copy.model, m.fcst[m.fcst['ds'] >= cutoff_date], xlabel='Time', ylabel='N Scooters', figsize=(15, 6))
 # fig.show()
 fig.savefig('/home/bapfeld/scoothome/figures/prophet_example.png')
 fig2 = m.model.plot_components(m.fcst)
