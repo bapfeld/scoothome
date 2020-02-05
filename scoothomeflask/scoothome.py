@@ -81,7 +81,8 @@ def geocode_location(location):
         return (None, None)
 
 def calc_nowish(pretty=False):
-    now = datetime.datetime.now() + datetime.timedelta(hours=3)
+    """Function to calculate approximate time. Servers exist at UTC +0"""
+    now = datetime.datetime.now() - datetime.timedelta(hours=3)
     now = datetime.datetime(now.year, now.month, now.day, now.hour,
                             15*round((float(now.minute) + float(now.second) / 60) // 15))
     if pretty:
@@ -230,7 +231,7 @@ def results():
             return reload_after_error("Whoops, that's not a date we understand. Please try again.")
         if t < datetime.datetime.now():
             return reload_after_error("Whoops, looks like you chose a time that's already happened!")
-        if t > datetime.datetime.now() + datetime.timedelta(days=7):
+        if t > datetime.datetime.now() + datetime.timedelta(days=6, hours=21):
             return reload_after_error("Whoops, looks like you chose a time that's too far in the future.")
         location = geocode_location(input_location)
         if location[0] is None:
