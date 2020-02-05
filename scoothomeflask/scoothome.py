@@ -190,7 +190,7 @@ def make_detailed_dict(t, n, n_low, n_high, used, used_low, used_high):
 # Define routes
 @app.errorhandler(404)
 def page_not_found(error):
-    return 'This route does not exist {}'.format(request.url), 404
+    return render_template('404.html')
 
 @app.route('/', methods=['GET'])
 def index():
