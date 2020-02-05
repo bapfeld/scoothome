@@ -58,6 +58,59 @@ with PdfPages('/home/bapfeld/scoothome/figures/time_series_by_area.pdf') as pdf:
         pdf.savefig()
         plt.close()
 
+# FB Prophet is throwing weird errors, so let's try to modify source plotting functions
+from matplotlib.dates import (
+        MonthLocator,
+        num2date,
+        AutoDateLocator,
+        AutoDateFormatter,
+    )
+def fb_plot(
+    m, fcst, ax=None, uncertainty=True, plot_cap=True, xlabel='ds', ylabel='y',
+    figsize=(10, 6)
+):
+    """Plot the Prophet forecast.
+    Parameters
+    ----------
+    m: Prophet model.
+    fcst: pd.DataFrame output of m.predict.
+    ax: Optional matplotlib axes on which to plot.
+    uncertainty: Optional boolean to plot uncertainty intervals, which will
+        only be done if m.uncertainty_samples > 0.
+    plot_cap: Optional boolean indicating if the capacity should be shown
+        in the figure, if available.
+    xlabel: Optional label name on X-axis
+    ylabel: Optional label name on Y-axis
+    figsize: Optional tuple width, height in inches.
+    Returns
+    -------
+    A matplotlib figure.
+    """
+    if ax is None:
+        fig = plt.figure(facecolor='w', figsize=figsize)
+        ax = fig.add_subplot(111)
+    else:
+        fig = ax.get_figure()
+    fcst_t = fcst['ds'].dt.to_pydatetime()
+    ax.plot(m.history['ds'].dt.to_pydatetime(), m.history['y'], 'k.')
+    ax.plot(fcst_t, fcst['yhat'], ls='-', c='#0072B2')
+    if 'cap' in fcst and plot_cap:
+        ax.plot(fcst_t, fcst['cap'], ls='--', c='k')
+    if m.logistic_floor and 'floor' in fcst and plot_cap:
+        ax.plot(fcst_t, fcst['floor'], ls='--', c='k')
+    if uncertainty and m.uncertainty_samples:
+        ax.fill_between(fcst_t, fcst['yhat_lower'], fcst['yhat_upper'],
+                        color='#0072B2', alpha=0.2)
+    # Specify formatting to workaround matplotlib issue #12925
+    locator = AutoDateLocator(interval_multiples=False)
+    formatter = AutoDateFormatter(locator)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(formatter)
+    ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    fig.tight_layout()
+    return fig
     
 # Plot results for one area
 area = '1.0-48453000804'
@@ -75,7 +128,8 @@ m.cv(initial='365 days', period='30 days', horizon='30 days', log=False)
 total_preds = m.fcst
 
 # generate and save figs here
-fig = m.model.plot(m.fcst)
+fig = fb_plot(m.model, m.fcst, xlabel='Time', ylabel='N Scooters', figsize=(15, 6))
+# fig.show()
 fig.savefig('/home/bapfeld/scoothome/figures/prophet_example.png')
 fig2 = m.model.plot_components(m.fcst)
 fig2.savefig('/home/bapfeld/scoothome/figures/prophet_example_components.png')
