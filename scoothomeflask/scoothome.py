@@ -229,9 +229,9 @@ def results():
         t = dateparser.parse(t)
         if t is None:
             return reload_after_error("Whoops, that's not a date we understand. Please try again.")
-        if t < datetime.datetime.now():
+        if t < datetime.datetime.now() - datetime.timedelta(hours=6):
             return reload_after_error("Whoops, looks like you chose a time that's already happened!")
-        if t > datetime.datetime.now() + datetime.timedelta(days=6, hours=21):
+        if t > datetime.datetime.now() + datetime.timedelta(days=7):
             return reload_after_error("Whoops, looks like you chose a time that's too far in the future.")
         location = geocode_location(input_location)
         if location[0] is None:
