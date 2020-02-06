@@ -1,2 +1,2 @@
-app/static/* linguist-vendored
+scoothomeflask/static/* linguist-vendored
 *.sql linguist-vendored=false
