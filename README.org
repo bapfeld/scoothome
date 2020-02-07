@@ -1,3 +1,3 @@
-#+TITLE: Scoot on Home Project Description
+#+TITLE: Scoot Home -- Be confident in your future bike and scooter options
 
-Figure out if you can get back home with shared micromobility?
+[[www.scoothome.xyz][Scoot Home]] is an app developed as part of the [[https://www.insightdatascience.com/][Insight Data Science]] Program. It predicts the future availability of shared micromobility vehicles (dockless bikes and scooters) around Austin, TX. 
