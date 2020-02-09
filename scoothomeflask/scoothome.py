@@ -14,6 +14,12 @@ from scoothomeflask import app
 
 # Define functions
 def import_secrets(ini_path):
+    """
+    Imports secrets from ini file on disk. 
+
+    Returns list of postgres dictionary, darksky api key string, 
+    and mapbox public token string.
+    """
     config = configparser.ConfigParser()
     config.read(ini_path)
     return (config['postgres'], config['darksky']['key'], config['mapbox']['public_token'])
@@ -23,8 +29,8 @@ ini_path = os.path.expanduser('~/scoothome/setup.ini')
 pg, ds_key, map_pub_token = import_secrets(ini_path)
 
 class tsResults():
-    """Class to query postgres database and return predictions
-
+    """
+    Class to query postgres database and return predictions
     """
     def __init__(self, pg, area, t):
         self.pg = pg
@@ -51,22 +57,15 @@ class tsResults():
                 preds = preds.groupby('ds').mean()
             return preds
 
-    def fetch_bikes(self, var):
-        q = f"""SELECT ds, yhat, yhat_lower, yhat_upper FROM bike_predictions
-                WHERE area = '{self.area}'
-                AND ds >= '{self.t}'
-                AND var = '{var}'"""
-        with psycopg2.connect(database=self.pg_db,
-                              user=self.pg_username,
-                              password=self.pg_password,
-                              port=self.pg_port,
-                              host=self.pg_host) as conn:
-            preds = pd.read_sql(q, conn)
-            preds.groupby('ds').mean()
-            return preds
-
 
 def geocode_location(location):
+    """
+    Function to convert location string and return lat/lon coordinates. 
+
+    Geocoding is done via request to nominatim api.
+
+    Returns tuple of (lat, lon) if successful, else tuple of (None, None)
+    """
     query = re.sub(r'\s+', '\+', location)
     request = f'https://nominatim.openstreetmap.org/search?q={query}&format=json'
     res = requests.get(request)
@@ -81,7 +80,11 @@ def geocode_location(location):
         return (None, None)
 
 def calc_nowish(pretty=False):
-    """Function to calculate approximate time. Servers exist at UTC +0"""
+    """
+    Function to calculate approximate time. Rounds current time to nearest quarter hour and returns time three hours in future. Assumes input form server set to UTC +0 and desired timezone US Central (UTC-6).
+
+    Returns formatted string. If pretty=True, time is simplified.
+    """
     now = datetime.datetime.now() - datetime.timedelta(hours=3)
     now = datetime.datetime(now.year, now.month, now.day, now.hour,
                             15*round((float(now.minute) + float(now.second) / 60) // 15))
@@ -92,6 +95,9 @@ def calc_nowish(pretty=False):
     return now
 
 def loc_to_area(location):
+    """
+    Function takes tuple of (lat, lon) format and returns unique code for project areas. If no match is found returns None.
+    """
     lat, lon = location
     p = Point(lat, lon)
     p_rev = Point(lon, lat)
@@ -122,10 +128,12 @@ def loc_to_area(location):
     return area
 
 def reload_after_error(error):
+    """Thin wrapper for render_template of index with an error message"""
     now = calc_nowish(pretty=True)
     return render_template('index.html', now=now, error=error)
 
 def get_predictions(area, pg, t, transpo='scooter'):
+    """Function to fetch scooter predictions. Returns a pd.DataFrame"""
     t = t - datetime.timedelta(minutes=30)
     res = tsResults(pg, area, t)
     if transpo == 'scooter':
@@ -148,13 +156,16 @@ def get_predictions(area, pg, t, transpo='scooter'):
         return None
 
 def format_time(t):
+    """Thin wrapper for strftime. Returns 12 Hour:Minute formatted string."""
     return t.strftime("%I:%M")
 
 def format_scoot_num(n):
+    """Simple function to round vehicle numbers. Returns an integer >=0"""
     n = max([0, n])
     return int(np.round(n))
 
 def format_scoot_pct(n, in_use):
+    """Simple function to round percent of free vehicles. Returns 0 or float."""
     try:
         pct = (n - in_use) / n
     except ZeroDivisionError:
@@ -163,6 +174,7 @@ def format_scoot_pct(n, in_use):
     return pct
 
 def make_table_dict(t, n, used):
+    """Simple helper function to format predictions for results html page. Returns a dictionary."""
     d = dict()
     d['time'] = format_time(t)
     d['N'] = format_scoot_num(n)
@@ -172,6 +184,7 @@ def make_table_dict(t, n, used):
     return d
 
 def make_detailed_dict(t, n, n_low, n_high, used, used_low, used_high):
+    """Simple helper function to format predictions for details html page. Returns a dictionary."""
     d = dict()
     d['time'] = format_time(t)
     d['n'] = format_scoot_num(n)
