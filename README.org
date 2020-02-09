@@ -1,3 +1,17 @@
 #+TITLE: Scoot Home -- Be confident in your future bike and scooter options
 
 [[www.scoothome.xyz][Scoot Home]] is an app developed as part of the [[https://www.insightdatascience.com/][Insight Data Science]] Program. It predicts the future availability of shared micromobility vehicles (dockless bikes and scooters) around Austin, TX. 
+
+* Under the Hood
+1. Data on approximately 8.5 million ride are collected from the City of Austin's API
+2. Data is binned into approximately 375 geographic areas defined by population density and converted into time series
+3. Time series modeled using FB Prophet and used to produce predictions
+4. Predictions are loaded into remote postgres database and served to the user using a Flask app hosted on AWS
+
+* Algorithm Considerations
+- Prophet parameter tweaks
+  - Custom holiday specification for Austin events SXSW and ACL fest because these events create massive disruptions to all transportation in the city.
+  - Changepoint prior scale for overall model and holidays. I opt for a relaxed parameter to allow the model great flexibility in changing direction rapidly.
+  - Additional covariaties. I experimented with using weather data in the model. Despite strong expectations that variables like temperature and precipitation would be important in capturing scooter and bike usage, these variables added very little predictive power and are not included in the final model
+- Systematic low estimates
+  - The Prophet models tend to predict low in comparison to real data points. This is a desirable feature of the model: an overestimate could leave a user of the app unable to complete their journey as planned, increasing time and cost and defeating the purpose of the app.
