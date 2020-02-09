@@ -1,3 +1,5 @@
+# Early attempt to visualize the data
+
 import pandas as pd
 import matplotlib.pyplot as plt
 

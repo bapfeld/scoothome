@@ -1,3 +1,5 @@
+-- Build the postgres database
+
 CREATE TABLE ts
 (
   area VARCHAR(16),

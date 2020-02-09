@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+
+# This script explores the use of an ARIMA model for fitting the time series
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
