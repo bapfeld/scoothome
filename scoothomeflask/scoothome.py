@@ -12,7 +12,7 @@ import psycopg2
 import dateparser
 from scoothomeflask import app
 
-# Define functions
+# Import secrets from ini file
 def import_secrets(ini_path):
     """
     Imports secrets from ini file on disk. 
