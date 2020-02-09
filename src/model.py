@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import pandas as pd
 import numpy as np
 import configparser, argparse
@@ -16,8 +18,18 @@ def import_secrets(ini_path):
     return (config['postgres'], config['darksky']['key'])
 
 class tsModel():
-    """Class to query required underlying data, estimate a model, and forecast.
+    """
+    Fundamental class definition for estimating a model. 
 
+    Required initialization: 
+    pg: dictionary of postgres values for username, password, host, database, and port
+    ds_key: DarkSky API key
+
+    Optional initialization:
+    bin_window: The size of the time window to model. Specify any valid Pandas offset string. 
+        All data will be resampled accordingly. Default is '15T', i.e. 15 minute windows.
+    include_weather: Boolean to indicate if the model should use weather covariates for building and predicting.
+        Defaults to True.
     """
     def __init__(self, pg, ds_key, bin_window='15T', include_weather=True):
         self.ds_key = ds_key
@@ -34,9 +46,21 @@ class tsModel():
         self.engine = create_engine(f'postgresql://{self.pg_username}:{self.pg_password}@{self.pg_host}:{self.pg_port}/{self.pg_db}')
         
     def init_ds_obj(self):
+        """Thin wrapper to initialize DarkSky object"""
         self.ds = DarkSky(self.ds_key)
         
     def get_area_series(self, idx, series='scooter', log_transform=False, window_start=None, window_end=None):
+        """
+        Function to query postgres for time series data.
+
+        Parameters:
+        idx: area identifier
+        series: which series to query - options are 'scooter' or 'bicycle'
+        log_transform: Boolean for whether the usage numbers should be logged. Defaults to False.
+        window_start: Arbitrary date for starting the time series. Can pair with window_end 
+            for any arbitrary, logical window.Default is None (i.e. use the full time series.)
+        window_end: See window_start.
+        """
         self.idx = idx
         self.series = series
         if self.series == 'scooter':
@@ -63,6 +87,7 @@ class tsModel():
                 self.area_series['bike_in'] = np.log(self.area_series['bike_in_use'] + 1)
 
     def transform_area_series(self, select_var='n'):
+        """Simple function to select only required variable from time series data."""
         if self.series == 'scooter':
             if select_var == 'n':
                 self.area_series.drop(columns=['in_use'], inplace=True)
@@ -83,6 +108,7 @@ class tsModel():
                 self.area_series.drop(columns=['bike_n', 'bike_in_use'], inplace=True)
 
     def get_weather_data(self):
+        """Simple function to query weather data from postgres"""
         start_time = self.area_series['time'].min()
         end_time = self.area_series['time'].max()
         q = f"SELECT * FROM weather WHERE time >= '{start_time}' AND time <= '{end_time}'"
@@ -100,6 +126,7 @@ class tsModel():
             self.weather = self.weather.set_index('time').resample(self.bin_window).mean()
 
     def prep_model_data(self):
+        """Simple function to prepare guarantee time series data is in correct format for prophet model"""
         if self.include_weather:
             self.dat = pd.merge(self.area_series, self.weather, how='right', on='time')
         else:
@@ -114,6 +141,7 @@ class tsModel():
                         inplace=True)
 
     def make_special_events(self):
+        """Simple function to prepare holiday dataframes for model"""
         sxsw = pd.DataFrame({
             'holiday': 'sxsw',
             'ds': pd.to_datetime(['2018-03-09', '2018-03-10', '2018-03-11',
@@ -139,6 +167,7 @@ class tsModel():
         
 
     def build_model(self, scale=0.05, hourly=False, holidays_scale=10.0):
+        """Simple function to build model. Allows for specification of model parameters."""
         self.make_special_events()
         self.model = Prophet(changepoint_prior_scale=scale,
                              holidays=self.holidays,
@@ -150,15 +179,22 @@ class tsModel():
             self.model.add_seasonality(name='hourly', period=0.04167, fourier_order=1)
 
     def train_model(self):
+        """Thin wrapper to train model"""
         self.model.fit(self.dat)
 
     def calculate_periods(self):
+        """Determine number of prediction periods required to reach 2 week forecast"""
         max_d = self.area_series['ds'].max()
         two_weeks = datetime.datetime.now() + datetime.timedelta(weeks=2)
         t_diff = two_weeks - max_d
         return int(t_diff.total_seconds() / 3600 * 4)
 
     def build_prediction_df(self, lat = 30.267151, lon = -97.743057, periods=192):
+        """
+        Simple function to build the prediction dataframe.
+
+        Lat and lon only required if using weather data. Defaults to center of Austin.
+        """
         self.future = self.model.make_future_dataframe(periods=periods, freq='15T')
         if self.include_weather:
             self.get_weather_pred(lat, lon)
@@ -166,6 +202,7 @@ class tsModel():
             self.future.update(self.future_weather)
 
     def get_weather_pred(self, lat, lon):
+        """Fetch forecast from DarkSky"""
         w_pred = self.ds.get_forecast(lat, lon,
                                       extend=False,
                                       lang=languages.ENGLISH,
@@ -197,9 +234,11 @@ class tsModel():
         self.future_weather = self.future_weather.tz_convert(None)
 
     def predict(self):
+        """Thin wrapper to produce predictions"""
         self.fcst = self.model.predict(self.future)
 
     def preds_to_sql(self, var):
+        """Simple function to write predictions to postgres table"""
         fcst_out = self.fcst[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].copy()
         fcst_out.columns = map(lambda x: x.lower(), fcst_out.columns)
         fcst_out['area'] = self.idx
@@ -210,6 +249,7 @@ class tsModel():
         fcst_out.to_sql('predictions', self.engine, if_exists='append', index=False)
 
     def query_preds(self, time_stamp):
+        """Simple function for querying previous predictions"""
         q = f"SELECT * FROM predictions WHERE area = '{self.idx}' AND ds >= '{time_stamp}'"
         with psycopg2.connect(database=self.pg_db,
                               user=self.pg_username,
@@ -219,35 +259,30 @@ class tsModel():
             self.old_preds = pd.read_sql(q, conn)
 
     def plot_results(self):
+        """
+        Thin wrapper to plot results. 
+
+        Usually it is preferable to use object model and fcst dataframe to plot separately.
+        """
         self.fig = self.model.plot(self.fcst)
-        #fig.savefig(outflow)
 
     def cv(self, initial, period, horizon, log=False):
+        """
+        Simple function to do walk forward validation. 
+
+        Parameters:
+        Initial: length of time to train original model
+        Period: frequency with which to test beyond the original training period
+        Horizon: Length of predictions
+        Log: Was the model trained on logged data? Defaults to False.
+        """
         self.df_cv = cross_validation(self.model, initial=initial, period=period, horizon=horizon)
         if log:
             self.df_cv = self.df_cv.apply(lambda x: np.exp(x) if x.name not in ['ds', 'cutoff'] else x)
         self.df_p = performance_metrics(self.df_cv)
 
-    def run(self,
-            area_key,
-            lat,
-            lon,
-            hourly, 
-            varlist=['temp', 'wind', 'cloud_cover', 'humidity']):
-        self.get_area_series(area_key)
-        self.transform_area_series(select_var='n')
-        self.get_weather_data()
-        self.prep_model_data()
-        self.build_model(varlist=varlist, hourly=hourly)
-        self.train_model()
-        t_diff = datetime.datetime.now() + datetime.timedelta(days=2) - self.area_series['time'].max()
-        hours_diff = (t_diff.days * 24) + (t_diff.seconds / 3600)
-        periods = max([192, int(hours_diff) * 4])
-        self.build_prediction_df(lat, lon, periods)
-        self.predict()
-        # self.plot_results()
-
     def save_results(self, save_path):
+        """Thin wrapper to save forecast dataframe to pickle object"""
         self.fcst.to_pickle(save_path)
 
 def main(pg, ds_key):
