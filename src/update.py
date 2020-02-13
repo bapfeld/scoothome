@@ -206,11 +206,6 @@ class updater():
     """
     def __init__(self, app_token, pg, ds_key):
         self.app_token = app_token
-        self.conn = psycopg2.connect(database=pg['database'],
-                                     user=pg['username'],
-                                     password=pg['password'],
-                                     port=pg['port'],
-                                     host=pg['host'])
         self.pg_username = pg['username']
         self.pg_password = pg['password']
         self.pg_host = pg['host']
@@ -230,9 +225,18 @@ class updater():
         
     def get_max_dates(self):
         """Get the maximum dates for both ride and weather tables"""
-        self.max_ride_date = pd.read_sql_query('SELECT MAX(start_time) from rides', self.conn).iloc[0, 0]
-        self.max_weather_date = pd.read_sql_query('SELECT MAX(time) from weather', self.conn).iloc[0, 0]
-        self.max_ts_date = pd.read_sql('SELECT MAX(time) from ts', self.conn).iloc[0, 0]
+        with psycopg2.connect(database=self.pg_db,
+                              user=self.pg_username,
+                              password=self.pg_password,
+                              port=self.pg_port,
+                              host=self.pg_host) as conn:
+            self.max_ride_date = pd.read_sql_query('SELECT MAX(start_time) from rides',
+                                                   conn).iloc[0, 0]
+            self.max_weather_date = pd.read_sql_query('SELECT MAX(time) from weather',
+                                                      conn).iloc[0, 0]
+        
+            self.max_ts_date = pd.read_sql('SELECT MAX(time) from ts',
+                                           conn).iloc[0, 0]
 
     def basic_clean(self, df):
         # Drop bad observations
