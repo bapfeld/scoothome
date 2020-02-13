@@ -183,9 +183,9 @@ class tsModel():
         self.model.fit(self.dat)
 
     def calculate_periods(self):
-        """Determine number of prediction periods required to reach 2 week forecast"""
+        """Determine number of prediction periods required to reach 4 week forecast"""
         max_d = self.area_series['ds'].max()
-        two_weeks = datetime.datetime.now() + datetime.timedelta(weeks=2)
+        two_weeks = datetime.datetime.now() + datetime.timedelta(weeks=4)
         t_diff = two_weeks - max_d
         return int(t_diff.total_seconds() / 3600 * 4)
 
