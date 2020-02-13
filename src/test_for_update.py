@@ -36,7 +36,7 @@ else:
 # Write the results to the update log file
 logfile = os.path.expanduser('~/update_check.log')
 log_note = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
-log_note += f'\nDB MAX: {current_max_date} --- AUSTIN MAX: {austin_max_pretty}\n\n'
-log_note += f'ACTION: {action}\n'
+log_note += f'\nDB MAX: {current_max_date} --- AUSTIN MAX: {austin_max_pretty}\n'
+log_note += f'ACTION: {action}\n\n'
 with open(logfile, 'a') as outfile:
     outfile.writelines(log_note)
