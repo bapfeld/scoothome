@@ -4,14 +4,14 @@ from fbprophet import Prophet
 from fbprophet.diagnostics import cross_validation, performance_metrics
 from fbprophet.plot import plot_cross_validation_metric
 import psycopg2
-from matplotlib.backends.backend_pdf import PdfPages
 from darksky.api import DarkSky
 from darksky.types import languages, units, weather
 import sys, re, os
-sys.path.append('/home/bapfeld/scoothome')
+sys.path.append(os.path.expanduser('~/scoothome'))
 from src.model import tsModel, import_secrets
 import configparser, argparse
 from itertools import product
+import multiprocessing as mp
 
 def initialize_params():
     parser = argparse.ArgumentParser()
@@ -19,11 +19,6 @@ def initialize_params():
         '--ini_path',
         help="Path to the .ini file containing the app token",
         required=False,
-    )
-    parser.add_argument(
-        '--area_list_file',
-        help="Path to a list of areas to run",
-        required=True,
     )
     parser.add_argument(
         '--vehicle_type',
@@ -37,15 +32,9 @@ def initialize_params():
         required=True
     )
     parser.add_argument(
-        '--proc_num',
-        help="For a script running multiple processes at once, which number is this?",
-        required=False,
-    )
-    parser.add_argument(
-        '--total_processes',
-        help="Total number of processes being run at once",
+        '--num_proc',
+        help="Number of processes to run in parallel",
         required=True,
-        default=1
     )
     return parser.parse_args()
 
@@ -93,31 +82,20 @@ def main():
     bin_window = '15T'
     hs = 50
     cps = 100
-    t_processes = int(args.total_processes)
-    if args.proc_num is not None:
-        proc_num = int(args.proc_num)
-    with open(os.path.expanduser(args.area_list_file), 'r') as f_in:
-        area_list = [x.strip() for x in f_in.readlines()]
-    if os.path.exists(os.path.expanduser(args.completed_area_file)):
-        with open(os.path.expanduser(args.completed_area_file), 'r') as f_in:
-            completed_list = [x.strip() for x in f_in.readlines()]
-    else:
-        completed_list = []
-    if t_processes > 1:
-        a_lists = np.array_split(area_list, t_processes)
-        area_list = [x for x in a_lists[proc_num - 1] if x not in completed_list]
-        for i, area in enumerate(area_list):
-            if i % proc_num == 0:
-                generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type)
-                with open(os.path.expanduser(args.completed_area_file), 'a') as f_out:
-                    f_out.writelines(area)
-                    f_out.writelines('\n')
-            else:
-                pass
-    else:
-        area_list = [x for x in area_list if x not in completed_list]
-        generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type)
-    
+    n_processes = int(args.num_proc)
+    with psycopg2.connect(database=pg['database'],
+                              user=pg['username'],
+                              password=pg['password'],
+                              port=pg['port'],
+                              host=pg['host']) as conn:
+        area_df = pd.read_sql('SELECT DISTINCT(area) FROM ts', conn)
+
+    def gen_modeler(a):
+        generate_models(pg, ds_key, bin_window, hs, cps, a, vehicle_type)
+
+    pool = mp.Pool(processes=n_processes)
+    pool.imap(gen_modeler, area_df['area'])
+
 
 if __name__ == "__main__":
     main()

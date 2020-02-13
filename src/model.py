@@ -11,13 +11,14 @@ from fbprophet.diagnostics import cross_validation, performance_metrics
 from fbprophet.plot import plot_cross_validation_metric
 from darksky.api import DarkSky
 from darksky.types import languages, units, weather
+import multiprocessing
 
 def import_secrets(ini_path):
     config = configparser.ConfigParser()
     config.read(ini_path)
     return (config['postgres'], config['darksky']['key'])
 
-class tsModel():
+class tsModel(multiprocessing.Process):
     """
     Fundamental class definition for estimating a model. 
 
@@ -32,6 +33,7 @@ class tsModel():
         Defaults to True.
     """
     def __init__(self, pg, ds_key, bin_window='15T', include_weather=True):
+        multiprocessing.Process.__init__(self)
         self.ds_key = ds_key
         self.include_weather = include_weather
         if include_weather:
