@@ -68,7 +68,8 @@ def geocode_location(location):
     """
     query = re.sub(r'\s+', '\+', location)
     request = f'https://nominatim.openstreetmap.org/search?q={query}&format=json'
-    res = requests.get(request)
+    header = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.100 Safari/537.36'}
+    res = requests.get(request, headers=header)
     if res.status_code == 200:
         try:
             lat = float(res.json()[0]['lat'])
