@@ -9,6 +9,7 @@ from sqlalchemy import create_engine
 from darksky.api import DarkSky
 from darksky.types import languages, units, weather
 from collections import Counter
+import multiprocessing
 
 def import_secrets(ini_path):
     config = configparser.ConfigParser()
@@ -198,7 +199,7 @@ def daterange(start_date, end_date, inclusive=True):
         for n in range(int((end_date - start_date).days)):
             yield start_date + datetime.timedelta(n)
 
-class updater():
+class updateFetch():
     """Class to update the underlying databases. 
        
        Will pull all new data in case script needs to be run after a gap of more than one day.
@@ -281,25 +282,113 @@ class updater():
         self.new_rides.to_sql('rides', self.engine, if_exists='append', index=False)
 
 
-    def new_rides_to_ts(self):
-        new_rides = pd.read_sql(f"SELECT * FROM rides WHERE start_time > '{self.max_ts_date}'", self.conn)
-        new_rides['location_start_id'] = new_rides['council_district_start'].astype(float).astype(str) + '-' + new_rides['census_tract_start'].astype(str)
-        new_rides['location_start_id'] = [re.sub(r'^(\d)-', r'0\1-', x) for x in new_rides['location_start_id']]
-        new_rides['location_end_id'] = new_rides['council_district_end'].astype(float).astype(str) + '-' + new_rides['census_tract_end'].astype(str)
-        new_rides['location_end_id'] = [re.sub(r'^(\d)-', r'0\1-', x) for x in new_rides['location_end_id']]
-        new_rides['date'] = new_rides['start_time'].astype(str).str.extract(r'(\d\d\d\d-\d\d-\d\d)?')
+class updateTS(multiprocessing.Process):
+    """
+    Class to convert rides to time series in a parallel multiprocessing environment.
+    """
+    def __init__(self, pg, vehicle_id, max_ride_date):
+        multiprocessing.Process.__init__(self)
+        self.pg = pg
+        self.pg_username = pg['username']
+        self.pg_password = pg['password']
+        self.pg_host = pg['host']
+        self.pg_db = pg['database']
+        self.pg_port = pg['port']
+        self.vehicle_id = vehicle_id
+        self.mrd = max_ride_date
 
-        tsm = ts_maker(new_rides, self.pg)
-        tsm.process_devices(report=100)
-        counts = pd.DataFrame.from_dict(Counter(tsm.ts_list),
+    def fetch_rides(self):
+        q = f"""SELECT * FROM rides 
+                WHERE start_time <= '{self.mrd}'
+                AND vehicle_id = '{self.vehicle_id}' 
+                ORDER BY start_time DESC 
+                LIMIT 1 
+                UNION ALL
+                SELECT * FROM rides 
+                WHERE start_time > '{self.mrd}' 
+                AND vehicle_id = '{self.vehicle_id}'"""
+        with psycopg2.connect(database=self.pg_db,
+                              user=self.pg_username,
+                              password=self.pg_password,
+                              port=self.pg_port,
+                              host=self.pg_host) as conn:
+            self.rides = pd.read_sql(q, conn)
+        if self.rides.vehicle_type[1] == 'scooter':
+            self.out_dir = '/tmp/scooter_records/'
+        else:
+            self.out_dir = '/tmp/bicycle_records/'
+
+    def new_rides_to_ts(self):
+        self.rides['location_start_id'] = self.rides['council_district_start'].astype(float).astype(str) + '-' + self.rides['census_tract_start'].astype(str)
+        self.rides['location_start_id'] = [re.sub(r'^(\d)-', r'0\1-', x) for x in self.rides['location_start_id']]
+        self.rides['location_end_id'] = self.rides['council_district_end'].astype(float).astype(str) + '-' + self.rides['census_tract_end'].astype(str)
+        self.rides['location_end_id'] = [re.sub(r'^(\d)-', r'0\1-', x) for x in self.rides['location_end_id']]
+        self.rides['date'] = self.rides['start_time'].astype(str).str.extract(r'(\d\d\d\d-\d\d-\d\d)?')
+
+        tsm = ts_maker(self.rides, self.pg)
+        tsm.where_am_i(self.vehicle_id)
+        tsm.ts_list_to_txt(self.out_dir, self.vehicle_id)
+        
+
+
+def read_device_records(vehicle_type):
+    if vehicle_type == 'scooter':
+        dir_path = '/tmp/scooter_records/'
+    else:
+        dir_path = '/tmp/bicycle_records/'
+    event_list = []
+    f_list = [x for x in os.listdir(dir_path) if x.endswith('txt')]
+    f_list = [os.path.join(dir_path, x) for x in f_list]
+    for f in f_list:
+        with open(f, 'r') as f_in:
+            event_list.extend(f_in.readlines())
+    return event_list
+
+def add_cols(counts):
+    counts['area'] = counts['index'].str.extract(r'^(.*?)--')
+    counts['time'] = pd.to_datetime(counts['index'].str.extract(r'--(.*?)$'))
+    counts['district'] = counts['index'].str.extract(r'(^.*?)-').astype(float).astype(int)
+    counts['tract'] = counts['area'].str.extract(r'-(.*?$)').astype(int)
+    counts.drop(columns=['index'], inplace=True)
+    return counts
+
+def records_to_counts(vehicle_type):
+    if vehicle_type == 'scooter':
+        col_name = 'n'
+    else:
+        col_name = 'bike_n'
+    event_list = read_device_records(vehicle_type)
+    counts = pd.DataFrame.from_dict(Counter(event_list),
                                         orient='index',
-                                        columns=['n']).reset_index()
-        counts['area'] = counts['index'].str.extract(r'^(.*?)--')
-        counts['time'] = counts['index'].str.extract(r'--(.*?)$')
-        counts['district'] = counts['index'].str.extract(r'(^.*?)-').astype(float).astype(int)
-        counts['tract'] = counts['area'].str.extract(r'-(.*?$)').astype(int)
-        counts.drop(columns=['index'], inplace=True)
-        counts.to_sql('ts', self.engine, if_exists='append', chunksize=20000)
+                                        columns=[col_name]).reset_index()
+    counts = add_cols(counts)
+    return counts
+    
+
+def estimate_actual_usage(vehicle_type, dat):
+    if vehicle_type == 'scooter':
+        col_name = 'in_use'
+    else:
+        col_name = 'bike_in_use'
+    dat = dat[dat['vehicle_type'] == vehicle_type]
+    dat['location_start_id'] = dat['council_district_start'].astype(float).astype(str) + '-' + dat['census_tract_start'].astype(str)
+    dat['full_index'] = dat['location_start_id'] + '--' + dat['start_time'].astype(str)
+    counts = pd.DataFrame.from_dict(Counter(dat['full_index']),
+                                    orient='index',
+                                    columns=[col_name]).reset_index()
+    counts = add_cols(counts)
+    return counts
+    
+
+def combine_multi_ts(pg, dat):
+    scooters = records_to_counts('scooter')
+    bikes = records_to_counts('bicycle')
+    df = scooters.merge(bikes, how='outer', on=['area', 'time', 'district', 'tract'])
+    scooter_use = estimate_actual_usage('scooter', dat)
+    bike_use = estimate_actual_usage('bicycle', dat)
+    df = df.merge(scooter_use, how='outer', on=['area', 'time', 'district', 'tract'])
+    df = df.merge(bike_use, how='outer', on=['area', 'time', 'district', 'tract'])
+    return df
 
 def initialize_params():
     parser = argparse.ArgumentParser()
@@ -308,27 +397,29 @@ def initialize_params():
         help="Path to the .ini file containing the app token",
         required=False,
     )
-    parser.add_argument(
-        '--fetch_weather',
-        help="Should the updater fetch new weather history? Include flag to fetch.",
-        required=False,
-        action="store_true"
-    )
     return parser.parse_args()
     
-def main():
+def main():    
     args = initialize_params()
     app_token, pg, ds_key = import_secrets(os.path.expanduser(args.ini_path))
 
-    upd = updater(app_token, pg, ds_key)
+    upd = updateFetch(app_token, pg, ds_key)
     upd.get_max_dates()
     upd.get_new_ride_data()
+    old_max_date = upd.max_ride_date
+
+    def multi_ts(vehicle_id):
+        upd = updateTS(pg, vehicle_id, max_ride_date)
+        upd.fetch_rides()
+        upd.new_rides_to_ts()
+    
     if upd.new_rides is not None:
         upd.write_new_rides()
-    if args.fetch_weather:
-        upd.get_new_weather_history()
-    upd.new_rides_to_ts()
-
+        ids = pd.unique(upd.new_rides['device_id'])
+        pool = multiprocessing.Pool(processes=n_processes)
+        pool.imap(multi_ts, ids)
+        totals = combine_multi_ts(pg, upd.new_rides)
+        totals.to_sql('ts', self.engine, if_exists='append', chunksize=20000)
 
 if __name__ == "__main__":
     main()
