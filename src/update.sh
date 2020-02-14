@@ -1,15 +1,24 @@
 #!/bin/bash
 
+# make sure we're in the correct directory
+cd ~/scoothome
+
 # make sure we have latest version of code
 git pull
+
+# activate our environment
+workon scoothome
 
 # make sure directory structure is clean for update
 rm -rf /tmp/scooter_records/ /tmp/bicycle_records
 mkdir /tmp/scooter_records /tmp/bicycle_records
 
+# move into the src directory
+cd src
+
 # Fetch new data and convert to time series
 python update.py \
-       --ini_path=/home/bapfeld/scoothome/setup.ini \
+       --ini_path=~/scoothome/setup.ini \
        --num_proc=$(nproc)
 
 # Calculate new scooter models
