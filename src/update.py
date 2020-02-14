@@ -307,6 +307,11 @@ def initialize_params():
         help="Path to the .ini file containing the app token",
         required=False,
     )
+    parser.add_argument(
+        '--num_proc',
+        help="Number of processes to run in parallel",
+        required=True,
+    )
     return parser.parse_args()
     
 def main():    
@@ -326,7 +331,7 @@ def main():
     if upd.new_rides is not None:
         upd.write_new_rides()
         ids = pd.unique(upd.new_rides['device_id'])
-        pool = multiprocessing.Pool(processes=n_processes)
+        pool = multiprocessing.Pool(processes=num_proc)
         pool.imap(multi_ts, ids)
         totals = combine_multi_ts(pg, upd.new_rides)
         totals.to_sql('ts', self.engine, if_exists='append', chunksize=20000)
