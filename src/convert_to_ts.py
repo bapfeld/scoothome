@@ -67,8 +67,10 @@ def clean_df(df, device_type=None):
 
 
 class ts_maker():
-    """convert data to ts without constantly passing parameters and rewriting things
+    """
+    Class to convert a vehicle to a list of area-timestamp values
 
+    Initialize with data frame and postgres secrets
     """
     def __init__(self, dat):
         self.dat = dat
