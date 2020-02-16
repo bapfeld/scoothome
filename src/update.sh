@@ -32,3 +32,8 @@ python estimate_models.py \
        --ini_path=~/scoothome/setup.ini \
        --vehicle_type='bicycle' \
        --num_proc=$(nproc)
+
+if [ $(whoami) == 'ubuntu' ]
+then
+    sudo shutdown -h now
+fi
