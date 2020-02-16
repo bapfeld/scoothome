@@ -33,7 +33,7 @@ python estimate_models.py \
        --vehicle_type='bicycle' \
        --num_proc=$(nproc)
 
-if [ $(whoami) == 'ubuntu' ]
+if [ $USER == 'ubuntu' ]
 then
     sudo shutdown -h now
 fi
