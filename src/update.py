@@ -324,14 +324,14 @@ def main():
     old_max_date = upd.max_ride_date
 
     def multi_ts(vehicle_id):
-        upd = updateTS(pg, vehicle_id, max_ride_date)
+        upd = updateTS(pg, vehicle_id, old_max_date)
         upd.fetch_rides()
         upd.new_rides_to_ts()
     
     if upd.new_rides is not None:
         upd.write_new_rides()
         ids = pd.unique(upd.new_rides['device_id'])
-        pool = multiprocessing.Pool(processes=num_proc)
+        pool = multiprocessing.Pool(processes=int(args.num_proc))
         pool.imap(multi_ts, ids)
         totals = combine_multi_ts(pg, upd.new_rides)
         totals.to_sql('ts', self.engine, if_exists='append', chunksize=20000)
