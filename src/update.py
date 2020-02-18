@@ -259,12 +259,14 @@ def read_device_records(vehicle_type):
     for f in f_list:
         with open(f, 'r') as f_in:
             event_list.extend(f_in.readlines())
+    event_list = [x.rstrip() for x in event_list]
     return event_list
 
 def add_cols(counts):
     """Simple function for adding a few columns to the counts dataframe"""
     counts['area'] = counts['index'].str.extract(r'^(.*?)--')
-    counts['time'] = pd.to_datetime(counts['index'].str.extract(r'--(.*?)$'))
+    counts['time'] = counts['index'].str.extract(r'--(.*?)$')
+    counts['time'] = pd.to_datetime(counts['time'])
     counts['district'] = counts['index'].str.extract(r'(^.*?)-').astype(float).astype(int)
     counts['tract'] = counts['area'].str.extract(r'-(.*?$)').astype(int)
     counts.drop(columns=['index'], inplace=True)
