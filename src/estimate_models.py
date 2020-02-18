@@ -75,6 +75,9 @@ def generate_models(pg, ds_key, bin_window, hs, cps, area, vehicle_type):
         else:
             m.preds_to_sql(var='bike_in_use')
 
+def gen_modeler(a, pg, ds_key, bin_window, hs, cps, vehicle_type):
+    generate_models(pg, ds_key, bin_window, hs, cps, a, vehicle_type)
+        
 def main():
     args = initialize_params()
     vehicle_type = args.vehicle_type
@@ -90,11 +93,11 @@ def main():
                               host=pg['host']) as conn:
         area_df = pd.read_sql('SELECT DISTINCT(area) FROM ts', conn)
 
-    def gen_modeler(a):
-        generate_models(pg, ds_key, bin_window, hs, cps, a, vehicle_type)
 
     pool = mp.Pool(processes=n_processes)
-    pool.imap(gen_modeler, area_df['area'])
+    pool.map(gen_modeler, product(area_df['area'], [pg], [ds_key],
+                                  [bin_window], [hs], [cps],
+                                  [vehicle_type]))
 
 
 if __name__ == "__main__":

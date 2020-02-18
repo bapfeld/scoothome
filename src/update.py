@@ -9,6 +9,7 @@ from sqlalchemy import create_engine
 from darksky.api import DarkSky
 from darksky.types import languages, units, weather
 from collections import Counter
+from itertools import product
 import multiprocessing
 import sys
 sys.path.append(os.path.expanduser('~/scoothome'))
@@ -341,6 +342,12 @@ def initialize_params():
         required=False,
     )
     return parser.parse_args()
+
+# define a function for multiprocessing
+def multi_ts(vehicle_id, pg, old_max_date):
+    upd = updateTS(pg, vehicle_id, old_max_date)
+    upd.fetch_rides()
+    upd.new_rides_to_ts()
     
 def main():
     # initialize args and import secrets
@@ -365,15 +372,9 @@ def main():
         except:
             sys.exit("No new rides downloaded")
 
-    # define a function for multiprocessing
-    def multi_ts(vehicle_id):
-        upd = updateTS(pg, vehicle_id, old_max_date)
-        upd.fetch_rides()
-        upd.new_rides_to_ts()
-
     # Process ids in parallel
     pool = multiprocessing.Pool(processes=int(args.num_proc))
-    pool.map(multi_ts, ids)
+    pool.starmap(multi_ts, product(ids, [pg], [old_max_date]))
     pool.close()
 
     # combine everything depending on if old_date was supplied
