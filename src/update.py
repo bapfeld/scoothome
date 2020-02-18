@@ -230,7 +230,8 @@ class updateTS(multiprocessing.Process):
         self.rides['location_end_id'] = [re.sub(r'^(\d)-', r'0\1-', x) for x in self.rides['location_end_id']]
         self.rides['date'] = self.rides['start_time'].astype(str).str.extract(r'(\d\d\d\d-\d\d-\d\d)?')
 
-        tsm = ts_maker(self.rides, self.pg)
+        tsm = ts_maker(self.rides)
+        tsm.sql_setup(self.pg)
         tsm.where_am_i(self.vehicle_id)
         tsm.ts_list_to_txt(self.out_dir, self.vehicle_id)
         
