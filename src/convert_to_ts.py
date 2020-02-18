@@ -72,7 +72,7 @@ class ts_maker():
 
     Initialize with data frame and postgres secrets
     """
-    def __init__(self, dat):
+    def __init__(self, dat, pg=None):
         self.dat = dat
         self.areas = set(list(pd.unique(self.dat['location_start_id'])) +
                          list(pd.unique(self.dat['location_end_id'])))
@@ -84,7 +84,7 @@ class ts_maker():
     def sql_setup(self, pg):
         self.pg_username = pg['username']
         self.pg_password = pg['password']
-        self.pg_host = pg['localhost']
+        self.pg_host = pg['host']
         self.pg_db = pg['database']
         self.pg_port = pg['port']
         self.engine = create_engine(f'postgresql://{self.pg_username}:{self.pg_password}@{self.pg_host}:{self.pg_port}/{self.pg_db}')
