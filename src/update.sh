@@ -17,17 +17,20 @@ mkdir /tmp/scooter_records /tmp/bicycle_records
 cd src
 
 # Fetch new data and convert to time series
+echo 'Updating time series at $(date +"%T")'
 python update.py \
        --ini_path=~/scoothome/setup.ini \
        --num_proc=$(nproc)
 
 # Calculate new scooter models
+echo 'Running scooter models update at $(date +"%T")'
 python estimate_models.py \
        --ini_path=~/scoothome/setup.ini \
        --vehicle_type='scooter' \
        --num_proc=$(nproc)
 
 # Calculate new bike models
+echo 'Running bicycle models update at $(date +"%T")'
 python estimate_models.py \
        --ini_path=~/scoothome/setup.ini \
        --vehicle_type='bicycle' \
