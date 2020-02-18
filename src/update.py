@@ -366,14 +366,15 @@ def main():
         upd = updateTS(pg, vehicle_id, old_max_date)
         upd.fetch_rides()
         upd.new_rides_to_ts()
-    
+
+    # Process ids in parallel
     pool = multiprocessing.Pool(processes=int(args.num_proc))
     pool.map(multi_ts, ids)
     pool.close()
 
     # combine everything depending on if old_date was supplied
     if args.old_date is not None:
-        totals = combine_multi_ts(pg, start_date=old_date)
+        totals = combine_multi_ts(pg, start_date=old_max_date)
     else:
         totals = combine_multi_ts(pg, dat=upd.new_rides)
     totals.to_sql('ts', self.engine, if_exists='append', chunksize=20000)
