@@ -333,7 +333,7 @@ def main():
         upd.write_new_rides()
         ids = pd.unique(upd.new_rides['device_id'])
         pool = multiprocessing.Pool(processes=int(args.num_proc))
-        pool.imap(multi_ts, ids)
+        pool.map(multi_ts, ids)
         totals = combine_multi_ts(pg, upd.new_rides)
         totals.to_sql('ts', self.engine, if_exists='append', chunksize=20000)
 
