@@ -293,6 +293,7 @@ def estimate_actual_usage(vehicle_type, dat):
     else:
         col_name = 'bike_in_use'
     dat = dat[dat['vehicle_type'] == vehicle_type]
+    dat.reset_index(inplace=True, drop=True)
     dat['location_start_id'] = dat['council_district_start'].astype(float).astype(str) + '-' + dat['census_tract_start'].astype(str)
     dat['full_index'] = dat['location_start_id'] + '--' + dat['start_time'].astype(str)
     counts = pd.DataFrame.from_dict(Counter(dat['full_index']),
@@ -307,8 +308,9 @@ def combine_multi_ts(pg, dat=None, start_date=None):
     scooters = records_to_counts('scooter')
     bikes = records_to_counts('bicycle')
     df = scooters.merge(bikes, how='outer', on=['area', 'time', 'district', 'tract'])
+    df.fillna(value=0, inplace=True)
     if dat is None:
-        query = f"SELECT * FROM rides WHERE start_date > '{start_date}'"
+        query = f"SELECT * FROM rides WHERE start_time > '{start_date}'"
         with psycopg2.connect(database=pg['database'],
                               user=pg['username'],
                               password=pg['password'],
