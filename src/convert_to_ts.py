@@ -142,7 +142,7 @@ class ts_maker():
             time_span = arbitrary
         # add one vehicle to area for that time
         # self.ts.loc[pd.IndexSlice[tmp.iloc[i, 5], time_span], 'n'] += 1
-        new_list = [tmp.iloc[i, 5] + '--' + x for x in time_span]
+        new_list = [tmp.iloc[i, 16] + '--' + x for x in time_span]
         self.ts_list.extend(new_list)
 
     def where_am_i(self, idx):
@@ -156,23 +156,23 @@ class ts_maker():
         # final trip has to be ignored
         for i in range(tmp.shape[0] - 1):
             # Did the trip start and stop in the same area?
-            if tmp.iloc[i, 5] == tmp.iloc[i, 6]:
+            if tmp.iloc[i, 16] == tmp.iloc[i, 17]:
                 # trip starts and ends in same area
                 # first, take care of the journey itself
                 self.add_vehicle(tmp, i)
                 
                 # What if the vehicle sits idle for a period?
-                if tmp.iloc[i, 6] != tmp.iloc[i + 1, 5]:
+                if tmp.iloc[i, 17] != tmp.iloc[i + 1, 16]:
                     # vehicle changed zones between journeys
                     # does it appear to have been depleted?
-                    if travel.loc[tmp.iloc[i, 9]]['duration'] >= 24000:
+                    if travel.loc[tmp.iloc[i, 18]]['duration'] >= 24000:
                         # vehicle appears to be exhausted and is assumed to be useless
                         # nothing added
                         # potential to add a random variable here
                         pass
                     else:
                         # how long between the changes?
-                        t = tmp.iloc[i + 1, 7] - tmp.iloc[i, 8]
+                        t = tmp.iloc[i + 1, 5] - tmp.iloc[i, 6]
 
                         # less than 3 days suggests availability 
                         # very long length suggests vehicle hidden or out of service
@@ -183,22 +183,22 @@ class ts_maker():
                             # could add more complexity here
                 else:
                     # vehicle stayed in same area
-                    if travel.loc[tmp.iloc[i, 9]]['duration'] >= 24000:
+                    if travel.loc[tmp.iloc[i, 18]]['duration'] >= 24000:
                         # vehicle appears to be exhausted and is assumed to be useless
                         # nothing added
                         # potential to add a random variable here
                         pass
                     else:
                         # how long between the changes?
-                        t = tmp.iloc[i + 1, 7] - tmp.iloc[i, 8]
+                        t = tmp.iloc[i + 1, 5] - tmp.iloc[i, 6]
                         if t.total_seconds() >= 86400:
                             # assume 12 additional hours, then vehicle was charged if more than a day
                             self.add_vehicle(tmp, i, 48) 
                             # could add more complexity here
                         else:
                             # otherwise fill in until the next ride
-                            chunks = list(map(str, pd.date_range(tmp.iloc[i, 8],
-                                                                 tmp.iloc[i + 1, 7],
+                            chunks = list(map(str, pd.date_range(tmp.iloc[i, 6],
+                                                                 tmp.iloc[i + 1, 5],
                                                                  freq="15min")))
                             self.add_vehicle(tmp, i, chunks[1:-1])
             else:
