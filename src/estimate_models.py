@@ -27,11 +27,6 @@ def initialize_params():
         default='scooter'
     )
     parser.add_argument(
-        '--completed_area_file',
-        help="File to write completed areas to",
-        required=True
-    )
-    parser.add_argument(
         '--num_proc',
         help="Number of processes to run in parallel",
         required=True,
