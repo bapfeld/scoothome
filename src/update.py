@@ -203,15 +203,15 @@ class updateTS(multiprocessing.Process):
         self.mrd = max_ride_date
 
     def fetch_rides(self):
-        q = f"""SELECT * FROM rides 
+        q = f"""(SELECT * FROM rides 
                 WHERE start_time <= '{self.mrd}'
-                AND vehicle_id = '{self.vehicle_id}' 
-                ORDER BY start_time DESC 
-                LIMIT 1 
+                AND device_id = '{self.vehicle_id}' 
+                ORDER BY start_time DESC
+                LIMIT 1)
                 UNION ALL
                 SELECT * FROM rides 
                 WHERE start_time > '{self.mrd}' 
-                AND vehicle_id = '{self.vehicle_id}'"""
+                AND device_id = '{self.vehicle_id}'"""
         with psycopg2.connect(database=self.pg_db,
                               user=self.pg_username,
                               password=self.pg_password,
