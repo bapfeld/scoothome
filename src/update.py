@@ -348,20 +348,20 @@ def main():
     app_token, pg, ds_key = import_secrets(os.path.expanduser(args.ini_path))
 
     # Create an updateFetch object
-    upd = updateFetch(app_token, pg, ds_key)
+    upd_fetch = updateFetch(app_token, pg, ds_key)
 
     # Set dates and fetch data depending on whether old_date was supplied
     if args.old_date is not None:
         old_max_date = pd.to_datetime(args.old_date)
-        upd.max_ride_date = old_max_date
-        ids = upd.get_ids(old_max_date)
+        upd_fetch.max_ride_date = old_max_date
+        ids = upd_fetch.get_ids(old_max_date)
     else:
-        upd.get_max_dates()
-        upd.get_new_ride_data()
-        old_max_date = upd.max_ride_date
-        ids = pd.unique(upd.new_rides['device_id'])
+        upd_fetch.get_max_dates()
+        upd_fetch.get_new_ride_data()
+        old_max_date = upd_fetch.max_ride_date
+        ids = pd.unique(upd_fetch.new_rides['device_id'])
         try:
-            upd.write_new_rides()
+            upd_fetch.write_new_rides()
         except:
             sys.exit("No new rides downloaded")
 
@@ -381,7 +381,9 @@ def main():
         totals = combine_multi_ts(pg, start_date=old_max_date)
     else:
         totals = combine_multi_ts(pg, dat=upd.new_rides)
-    totals.to_sql('ts', self.engine, if_exists='append', chunksize=20000)
+
+    # Write the results to the ts table
+    totals.to_sql('ts', upd_fetch.engine, if_exists='append', chunksize=20000, index=False)
 
 if __name__ == "__main__":
     main()
