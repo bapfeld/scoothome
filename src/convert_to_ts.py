@@ -150,6 +150,7 @@ class ts_maker():
         travel = tmp.groupby('date').sum()
         travel['device_id'] = idx
         self.travel_totals = pd.concat([self.travel_totals, travel])
+        tmp.sort_values('start_time', inplace=True)
         tmp.drop_duplicates(subset=['start_time'], keep='first', inplace=True)
         tmp.reset_index(drop=True, inplace=True)
         # final trip has to be ignored
