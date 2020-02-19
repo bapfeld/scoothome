@@ -301,8 +301,8 @@ def estimate_actual_usage(vehicle_type, dat):
         col_name = 'bike_in_use'
     dat = dat[dat['vehicle_type'] == vehicle_type]
     dat.reset_index(inplace=True, drop=True)
-    dat['location_start_id'] = dat['council_district_start'].astype(float).astype(str) + '-' + dat['census_tract_start'].astype(str)
-    dat['full_index'] = dat['location_start_id'] + '--' + dat['start_time'].astype(str)
+    dat['location_start_id'] = dat['council_district_start'].astype('float').astype('str') + '-' + dat['census_tract_start'].astype('str')
+    dat['full_index'] = dat['location_start_id'] + '--' + dat['start_time'].astype('str')
     counts = pd.DataFrame.from_dict(Counter(dat['full_index']),
                                     orient='index',
                                     columns=[col_name]).reset_index()
