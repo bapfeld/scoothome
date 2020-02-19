@@ -236,6 +236,10 @@ class updateTS(multiprocessing.Process):
         self.rides = self.rides[self.rides['device_id'] == self.vehicle_id]
         self.rides.reset_index(inplace=True, drop=True)
 
+        # Make sure datatypes are correct
+        self.rides.duration = self.rides.duration.astype('float')
+        self.rides.distance = self.rides.distance.astype('float')
+
         # Conditionally set the out_dir
         if self.rides.vehicle_type[0] == 'scooter':
             self.out_dir = '/tmp/scooter_records/'
