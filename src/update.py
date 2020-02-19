@@ -372,7 +372,7 @@ def main():
 
     # Process ids in parallel
     pool = multiprocessing.Pool(processes=int(args.num_proc))
-    pool.starmap(multi_ts, product(ids, [pg], [old_max_date], [upd_fetch.all_rides]))
+    _ = pool.starmap(multi_ts, product(ids, [pg], [old_max_date], [upd_fetch.all_rides]))
     pool.close()
 
     # combine everything 

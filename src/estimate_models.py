@@ -90,7 +90,7 @@ def main():
 
 
     pool = mp.Pool(processes=n_processes)
-    pool.starmap(gen_modeler, product(area_df['area'], [pg], [ds_key],
+    _ = pool.starmap(gen_modeler, product(area_df['area'], [pg], [ds_key],
                                   [bin_window], [hs], [cps],
                                   [vehicle_type]))
     pool.close()
