@@ -174,6 +174,7 @@ class updateFetch():
         return df
 
     def get_new_ride_data(self, identifier="7d8e-dm7r"):
+        """Simple function to query data.austintexas.gov and return most recent rides"""
         client = Socrata("data.austintexas.gov", self.app_token)
         t = self.max_ride_date.strftime("%Y-%m-%dT%H:%M:%S")
         query = f'start_time > "{t}"'
@@ -187,22 +188,36 @@ class updateFetch():
     def write_new_rides(self):
         self.new_rides.to_sql('rides', self.engine, if_exists='append', index=False)
 
-    def get_ids(self, d):
-        query = f"SELECT DISTINCT(device_id) FROM rides WHERE start_time >= '{d}'"
+    def fetch_last_rides(self):
+        """Simple function to select the last ride for each device"""
+        q = f"""SELECT DISTINCT ON (device_id) *
+                FROM rides
+                ORDER BY device_id, start_time DESC
+                """
         with psycopg2.connect(database=self.pg_db,
                               user=self.pg_username,
                               password=self.pg_password,
                               port=self.pg_port,
                               host=self.pg_host) as conn:
-            res = pd.read_sql_query(query, conn)
-            return res['device_id']
+            self.last_rides = pd.read_sql(q, conn)
+
+    def merge_rides(self):
+        """Thing wrapper for pd.concat of new rides and last ride for each device"""
+        self.all_rides = pd.concat([self.new_rides, self.last_rides], ignore_index=True)
+
+    def basic_preprocess(self):
+        self.all_rides['location_start_id'] = self.all_rides['council_district_start'].astype(float).astype(str) + '-' + self.all_rides['census_tract_start'].astype(str)
+        self.all_rides['location_start_id'] = [re.sub(r'^(\d)-', r'0\1-', x) for x in self.all_rides['location_start_id']]
+        self.all_rides['location_end_id'] = self.all_rides['council_district_end'].astype(float).astype(str) + '-' + self.all_rides['census_tract_end'].astype(str)
+        self.all_rides['location_end_id'] = [re.sub(r'^(\d)-', r'0\1-', x) for x in self.all_rides['location_end_id']]
+        self.all_rides['date'] = self.all_rides['start_time'].astype(str).str.extract(r'(\d\d\d\d-\d\d-\d\d)?')
 
 
 class updateTS(multiprocessing.Process):
     """
     Class to convert rides to time series in a parallel multiprocessing environment.
     """
-    def __init__(self, pg, vehicle_id, max_ride_date):
+    def __init__(self, pg, vehicle_id, max_ride_date, dat):
         multiprocessing.Process.__init__(self)
         self.pg = pg
         self.pg_username = pg['username']
@@ -212,35 +227,22 @@ class updateTS(multiprocessing.Process):
         self.pg_port = pg['port']
         self.vehicle_id = vehicle_id
         self.mrd = max_ride_date
+        self.rides = dat
+        
 
-    def fetch_rides(self):
-        q = f"""(SELECT * FROM rides 
-                WHERE start_time <= '{self.mrd}'
-                AND device_id = '{self.vehicle_id}' 
-                ORDER BY start_time DESC
-                LIMIT 1)
-                UNION ALL
-                SELECT * FROM rides 
-                WHERE start_time > '{self.mrd}' 
-                AND device_id = '{self.vehicle_id}'"""
-        with psycopg2.connect(database=self.pg_db,
-                              user=self.pg_username,
-                              password=self.pg_password,
-                              port=self.pg_port,
-                              host=self.pg_host) as conn:
-            self.rides = pd.read_sql(q, conn)
-        if self.rides.vehicle_type[1] == 'scooter':
+    def new_rides_to_ts(self):
+        """Simple wrapper to subset data and send it to ts_maker for conversion"""
+        # Subset the data
+        self.rides = self.rides[self.rides['device_id'] == self.vehicle_id]
+        self.rides.reset_index(inplace=True, drop=True)
+
+        # Conditionally set the out_dir
+        if self.rides.vehicle_type[0] == 'scooter':
             self.out_dir = '/tmp/scooter_records/'
         else:
             self.out_dir = '/tmp/bicycle_records/'
-
-    def new_rides_to_ts(self):
-        self.rides['location_start_id'] = self.rides['council_district_start'].astype(float).astype(str) + '-' + self.rides['census_tract_start'].astype(str)
-        self.rides['location_start_id'] = [re.sub(r'^(\d)-', r'0\1-', x) for x in self.rides['location_start_id']]
-        self.rides['location_end_id'] = self.rides['council_district_end'].astype(float).astype(str) + '-' + self.rides['census_tract_end'].astype(str)
-        self.rides['location_end_id'] = [re.sub(r'^(\d)-', r'0\1-', x) for x in self.rides['location_end_id']]
-        self.rides['date'] = self.rides['start_time'].astype(str).str.extract(r'(\d\d\d\d-\d\d-\d\d)?')
-
+        
+        # Convert to time series
         tsm = ts_maker(self.rides)
         tsm.sql_setup(self.pg)
         tsm.where_am_i(self.vehicle_id)
@@ -336,17 +338,11 @@ def initialize_params():
         help="Number of processes to run in parallel",
         required=True,
     )
-    parser.add_argument(
-        '--old_date',
-        help="Optional argument that will disable fetch and use rides from postgres db instead.",
-        required=False,
-    )
     return parser.parse_args()
 
 # define a function for multiprocessing
-def multi_ts(vehicle_id, pg, old_max_date):
-    upd = updateTS(pg, vehicle_id, old_max_date)
-    upd.fetch_rides()
+def multi_ts(vehicle_id, pg, old_max_date, rides):
+    upd = updateTS(pg, vehicle_id, old_max_date, rides)
     upd.new_rides_to_ts()
     
 def main():
@@ -357,31 +353,26 @@ def main():
     # Create an updateFetch object
     upd_fetch = updateFetch(app_token, pg, ds_key)
 
-    # Set dates and fetch data depending on whether old_date was supplied
-    if args.old_date is not None:
-        old_max_date = pd.to_datetime(args.old_date)
-        upd_fetch.max_ride_date = old_max_date
-        ids = upd_fetch.get_ids(old_max_date)
-    else:
-        upd_fetch.get_max_dates()
-        upd_fetch.get_new_ride_data()
-        old_max_date = upd_fetch.max_ride_date
+    # Set dates and fetch data
+    upd_fetch.get_max_dates()
+    old_max_date = upd_fetch.max_ride_date
+    upd_fetch.get_new_ride_data()
+    try:
         ids = pd.unique(upd_fetch.new_rides['device_id'])
-        try:
-            upd_fetch.write_new_rides()
-        except:
-            sys.exit("No new rides downloaded")
+        upd_fetch.fetch_last_rides() # MUST fetch last ride before writing new data
+        upd_fetch.write_new_rides()
+        upd_fetch.merge_rides()
+        upd_fetch.basic_preprocess()
+    except:
+        sys.exit("No new rides downloaded")
 
     # Process ids in parallel
     pool = multiprocessing.Pool(processes=int(args.num_proc))
-    pool.starmap(multi_ts, product(ids, [pg], [old_max_date]))
+    pool.starmap(multi_ts, product(ids, [pg], [old_max_date], [upd_fetch.all_rides]))
     pool.close()
 
-    # combine everything depending on if old_date was supplied
-    if args.old_date is not None:
-        totals = combine_multi_ts(pg, start_date=old_max_date)
-    else:
-        totals = combine_multi_ts(pg, dat=upd.new_rides)
+    # combine everything 
+    totals = combine_multi_ts(pg, dat=upd.new_rides)
 
     # Write the results to the ts table
     totals.to_sql('ts', upd_fetch.engine, if_exists='append', chunksize=20000, index=False)
