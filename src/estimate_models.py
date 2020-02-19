@@ -93,6 +93,7 @@ def main():
     pool.map(gen_modeler, product(area_df['area'], [pg], [ds_key],
                                   [bin_window], [hs], [cps],
                                   [vehicle_type]))
+    pool.close()
 
 
 if __name__ == "__main__":
