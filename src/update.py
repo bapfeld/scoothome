@@ -376,7 +376,7 @@ def main():
     pool.close()
 
     # combine everything 
-    totals = combine_multi_ts(pg, dat=upd.new_rides)
+    totals = combine_multi_ts(pg, dat=upd_fetch.new_rides)
 
     # Write the results to the ts table
     totals.to_sql('ts', upd_fetch.engine, if_exists='append', chunksize=20000, index=False)
