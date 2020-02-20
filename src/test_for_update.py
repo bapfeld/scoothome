@@ -28,8 +28,12 @@ austin_max = datetime.datetime.fromtimestamp(austin_res['rowsUpdatedAt'])
 austin_max_pretty = austin_max.strftime('%Y-%m-%d %H:%M')
 
 # Check to see the difference and determine action
-if (austin_max - current_max_date).days > 1:
-    action = 'update'
+t_diff = (austin_max - current_max_date).days
+if t_diff > 1:
+    if t_diff > 6:
+        action = 'update'
+    else:
+        action = 'new data, no update'
 else:
     action = 'none'
 
