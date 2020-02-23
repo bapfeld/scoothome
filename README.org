@@ -27,9 +27,10 @@
   │   ├── time_series_by_area.pdf
   │   └── ts
   ├── README.org
+  ├── requirements.txt                <- Project-wide requirements file for pip install
   ├── scoothomeflask                  <- Flask application
   │   ├── __init__.py
-  │   ├── requirements.txt            <- Package requirements for flask app
+  │   ├── requirements.txt            <- Package requirements for flask app only
   │   ├── scoothome.py                <- Definition of application functions and routes
   │   ├── static                      <- Website static files
   │   └── templates                   <- Website html templates
