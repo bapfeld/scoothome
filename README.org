@@ -17,38 +17,38 @@
   - The Prophet models tend to predict low in comparison to real data points. This is a desirable feature of the model: an overestimate could leave a user of the app unable to complete their journey as planned, increasing time and cost and defeating the purpose of the app.
 * Project Structure
 #+begin_example
-  ├── data
+  ├── data                            <- Shapefiles for geographic areas
   │   ├── census_tracts
   │   ├── council_districts
-  ├── figures
+  ├── figures                         <- Output figures from models
   │   ├── prophet_tuning
   │   │   ├── avail
   │   │   └── radical
   │   ├── time_series_by_area.pdf
   │   └── ts
   ├── README.org
-  ├── scoothomeflask
+  ├── scoothomeflask                  <- Flask application
   │   ├── __init__.py
-  │   ├── requirements.txt
-  │   ├── scoothome.py
-  │   ├── static
-  │   └── templates
+  │   ├── requirements.txt            <- Package requirements for flask app
+  │   ├── scoothome.py                <- Definition of application functions and routes
+  │   ├── static                      <- Website static files
+  │   └── templates                   <- Website html templates
   │       ├── 404.html
   │       ├── details.html
   │       ├── index.html
   │       └── results.html
-  ├── setup.ini
-  └── src
+  ├── setup.ini                       <- Required ini file with various api keys (ignored in repo)
+  └── src                             <- Model files
       ├── arima.py
       ├── basic_vis.py
       ├── clean_mobility_data.py
-      ├── combine_multi_ts_output.py
+      ├── combine_multi_ts_output.py  <- Combines individual area records
       ├── convert_time_series.sh
-      ├── convert_to_ts.py
-      ├── create_db.sql
+      ├── convert_to_ts.py            <- Converts tabular vehicle records to time series
+      ├── create_db.sql               <- Creates the postgres database
       ├── demo_vis.py
       ├── estimate_bike_models.sh
-      ├── estimate_models.py
+      ├── estimate_models.py          <- Wrapper code for processing models for all areas
       ├── estimate_models.sh
       ├── estimate_usage.py
       ├── fetch_predictions.py
@@ -57,7 +57,7 @@
       ├── import_scoot_data.py
       ├── make_holidays.py
       ├── maps.py
-      ├── model.py
+      ├── model.py                    <- Define the model object
       ├── model_selection.py
       ├── model_selection.sh
       ├── prophet.py
@@ -67,7 +67,7 @@
       ├── test_for_update.sh
       ├── test_in_use.py
       ├── time_vis.py
-      ├── update.py
-      ├── update.sh
+      ├── update.py                   <- Wrapper code for updating data and models
+      ├── update.sh                   <- Script to execute updater
       └── weather_features.py
 #+end_example
