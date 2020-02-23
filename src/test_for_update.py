@@ -11,8 +11,9 @@ def import_secrets(ini_path):
     config = configparser.ConfigParser()
     config.read(ini_path)
     return (config['socrata']['app_token'],
-            config['postgres'])
-app_token, pg = import_secrets(ini_path)
+            config['postgres'],
+            config['ec2'])
+app_token, pg, ec2_config = import_secrets(ini_path)
             
 # Determine the maximum date in the database
 with psycopg2.connect(database=pg['database'],
@@ -51,3 +52,19 @@ with open(logfile, 'a') as outfile:
 session = boto3.Session(profile_name='brendan-IAM')
 ec2 = session.client('ec2')
 response = ec2.describe_instances()
+updater_id = ec2_config['updater_id']
+
+# This block tries in a dry run and raises an error only on failure
+try:
+    ec2.start_instances(InstanceIds=[updater_id], DryRun=True)
+except ClientError as e:
+    if 'DryRunOperation' not in str(e):
+        raise
+# Now do it for real
+try:
+    ec2.start_instances(InstanceIds=[updater_id], DryRun=False)
+except ClientError as e:
+    if 'DryRunOperation' not in str(e):
+        raise
+
+
