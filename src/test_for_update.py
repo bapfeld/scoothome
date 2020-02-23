@@ -1,7 +1,9 @@
 import pandas as pd
 from sodapy import Socrata
 import psycopg2, os, configparser
-import datetime
+import datetime, sys
+import boto3
+from botocore.exceptions import ClientError
 
 # Get socrata and postgres secrts
 ini_path = os.path.expanduser('~/scoothome/setup.ini')
@@ -44,3 +46,7 @@ log_note += f'\nDB MAX: {current_max_date} --- AUSTIN MAX: {austin_max_pretty}\n
 log_note += f'ACTION: {action}\n\n'
 with open(logfile, 'a') as outfile:
     outfile.writelines(log_note)
+
+# If an update is required, start the updater instance and get the code running
+ec2 = boto3.client('ec2')
+response = ec2.describe_instances()
