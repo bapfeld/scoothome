@@ -48,5 +48,6 @@ with open(logfile, 'a') as outfile:
     outfile.writelines(log_note)
 
 # If an update is required, start the updater instance and get the code running
-ec2 = boto3.client('ec2')
+session = boto3.Session(profile_name='brendan-IAM')
+ec2 = session.client('ec2')
 response = ec2.describe_instances()
