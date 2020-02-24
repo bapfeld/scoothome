@@ -1,7 +1,7 @@
 import pandas as pd
 from sodapy import Socrata
-import psycopg2, os, configparser
-import datetime, sys
+import psycopg2, os, configparser, argparse
+import datetime, sys, time
 import boto3
 from botocore.exceptions import ClientError
 
@@ -45,8 +45,8 @@ def calculate_action(austin_max, current_max_date):
     return action
 
 # Write the results to the update log file
-def log_decision(action, current_max_date, austin_max_pretty):
-    logfile = os.path.expanduser('~/update_check.log')
+def log_decision(action, current_max_date, austin_max_pretty, logfile_path):
+    logfile = os.path.expanduser(logfile_path)
     log_note = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
     log_note += f'\nDB MAX: {current_max_date} --- AUSTIN MAX: {austin_max_pretty}\n'
     log_note += f'ACTION: {action}\n\n'
@@ -57,30 +57,37 @@ def log_decision(action, current_max_date, austin_max_pretty):
 def run_updater(ec2_config):
     session = boto3.Session(profile_name='brendan-IAM')
     ec2 = session.client('ec2')
-    response = ec2.describe_instances()
     updater_id = ec2_config['updater_id']
-
-# This block tries in a dry run and raises an error only on failure
-try:
-    ec2.start_instances(InstanceIds=[updater_id], DryRun=True)
-except ClientError as e:
-    if 'DryRunOperation' not in str(e):
-        raise
-# Now do it for real
-try:
+    # Start the instance
     ec2.start_instances(InstanceIds=[updater_id], DryRun=False)
-except ClientError as e:
-    if 'DryRunOperation' not in str(e):
-        raise
+
+def initialize_params():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--ini_path',
+        help="Path to the ini file",
+        required=True,
+        default='~/scoothome/setup.ini'
+    )
+    parser.add_argument(
+        '--logfile_path',
+        help="Path to the location of the logfile",
+        required=True,
+        default='~/update_check.log'
+    )
+    return parser.parse_args()
+
 
 
 def main():
-    ini_path = os.path.expanduser('~/scoothome/setup.ini')
+    # Initialize
+    args = initialize_params()
+    ini_path = os.path.expanduser(args.ini_path)
     app_token, pg, ec2_config = import_secrets(ini_path)
     current_max_date = get_max_date(pg)
     austin_max, austin_max_pretty = check_for_new_data(app_token)
     action = calculate_action(austin_max, current_max_date)
-    log_decision(action, current_max_date, austin_max_pretty)
+    log_decision(action, current_max_date, austin_max_pretty, args.logfile_path)
     if action == 'update':
         run_updater(ec2_config)
 
