@@ -60,3 +60,9 @@ CREATE TABLE predictions
  );
 
 ALTER TABLE predictions ADD COLUMN modified_date TIMESTAMP;
+
+--Create indices that should speed up querying
+CREATE INDEX start_time ON rides(start_time);
+CREATE INDEX time ON ts(time);
+CREATE INDEX id ON rides(device_id);
+CREATE INDEX ds_var ON predictions(ds, var);
