@@ -15,6 +15,7 @@ def import_secrets(ini_path):
             
 # Determine the maximum date in the database
 def get_max_date(pg):
+    """Fetch the maximum date in the database"""
     with psycopg2.connect(database=pg['database'],
                           user=pg['username'],
                           password=pg['password'],
@@ -26,6 +27,7 @@ def get_max_date(pg):
 
 # Query socrata to see latest data
 def check_for_new_data(app_token):
+    """Test the Austin API to see if there is new data"""
     client = Socrata("data.austintexas.gov", app_token)
     austin_res = client.get_metadata(dataset_identifier="7d8e-dm7r")
     austin_max = datetime.datetime.fromtimestamp(austin_res['rowsUpdatedAt'])
@@ -34,6 +36,7 @@ def check_for_new_data(app_token):
 
 # Check to see the difference and determine action
 def calculate_action(austin_max, current_max_date):
+    """Compare maximum dates to decide if action should be taken"""
     t_diff = (austin_max - current_max_date).days
     if t_diff > 1:
         if t_diff > 6:
@@ -46,6 +49,7 @@ def calculate_action(austin_max, current_max_date):
 
 # Write the results to the update log file
 def log_decision(action, current_max_date, austin_max_pretty, logfile_path):
+    """Log the decision to file"""
     logfile = os.path.expanduser(logfile_path)
     log_note = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
     log_note += f'\nDB MAX: {current_max_date} --- AUSTIN MAX: {austin_max_pretty}\n'
@@ -55,6 +59,7 @@ def log_decision(action, current_max_date, austin_max_pretty, logfile_path):
 
 # If an update is required, start the updater instance and get the code running
 def run_updater(ec2_config):
+    """Thin wrapper to start the instance"""
     session = boto3.Session(profile_name='brendan-IAM')
     ec2 = session.client('ec2')
     updater_id = ec2_config['updater_id']
@@ -84,9 +89,11 @@ def main():
     args = initialize_params()
     ini_path = os.path.expanduser(args.ini_path)
     app_token, pg, ec2_config = import_secrets(ini_path)
+    # Fetch necessary info
     current_max_date = get_max_date(pg)
     austin_max, austin_max_pretty = check_for_new_data(app_token)
     action = calculate_action(austin_max, current_max_date)
+    # Make decision, take action
     log_decision(action, current_max_date, austin_max_pretty, args.logfile_path)
     if action == 'update':
         run_updater(ec2_config)
