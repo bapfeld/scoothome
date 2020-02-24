@@ -94,7 +94,7 @@ def main():
     austin_max, austin_max_pretty = check_for_new_data(app_token)
     action = calculate_action(austin_max, current_max_date)
     # Make decision, take action
-    log_decision(action, current_max_date, austin_max_pretty, args.logfile_path)
+    log_decision(action, current_max_date, austin_max_pretty, os.path.expanduser(args.logfile_path))
     if action == 'update':
         run_updater(ec2_config)
 
