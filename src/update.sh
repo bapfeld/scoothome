@@ -36,6 +36,11 @@ python estimate_models.py \
        --vehicle_type='bicycle' \
        --num_proc=$(nproc)
 
+# Drop old predictions
+echo 'Dropping old predictions at $(date +"%T")'
+python drop_old_predictions.py \
+       --ini_path=~/scoothome/setup.ini
+
 if [ $USER == 'ubuntu' ]
 then
     sudo shutdown -h now
