@@ -18,7 +18,7 @@ def import_secrets(ini_path):
     return config['postgres']
 
 def delete_records(pg, d):
-    q = f"DELETE FROM predictions WHERE modified_date < 'd'"
+    q = f"DELETE FROM predictions WHERE modified_date < '{d}'"
     with psycopg2.connect(pg['database'],
                           pg['username'],
                           pg['password'],
