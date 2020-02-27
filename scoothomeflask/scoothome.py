@@ -193,7 +193,7 @@ def make_detailed_dict(t, n, n_low, n_high, used, used_low, used_high):
     d['free'] = d['n'] - d['used']
     d['n_low'] = format_scoot_num(n_low)
     d['used_low'] = min([d['n'], format_scoot_num(used_low)])
-    d['free_low'] = d['n_low'] - d['used_low']
+    d['free_low'] = max([d['n_low'] - d['used_low'], 0])
     d['n_high'] = format_scoot_num(n_high)
     d['used_high'] = min([d['n_high'], format_scoot_num(used_high)])
     d['free_high'] = d['n_high'] - d['used_high']
