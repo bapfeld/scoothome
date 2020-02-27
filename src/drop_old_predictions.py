@@ -19,11 +19,11 @@ def import_secrets(ini_path):
 
 def delete_records(pg, d):
     q = f"DELETE FROM predictions WHERE modified_date < '{d}'"
-    with psycopg2.connect(pg['database'],
-                          pg['username'],
-                          pg['password'],
-                          pg['port'],
-                          pg['host']) as conn:
+    with psycopg2.connect(dbname=pg['database'],
+                          user=pg['username'],
+                          password=pg['password'],
+                          port=pg['port'],
+                          host=pg['host']) as conn:
         with conn.cursor() as curs:
             conn.execute(q)
             conn.commit()
