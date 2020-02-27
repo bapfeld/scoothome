@@ -25,7 +25,7 @@ def delete_records(pg, d):
                           port=pg['port'],
                           host=pg['host']) as conn:
         with conn.cursor() as curs:
-            conn.execute(q)
+            curs.execute(q)
             conn.commit()
 
 def main():
